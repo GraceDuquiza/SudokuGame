@@ -1,0 +1,370 @@
+/* ==========================================================
+    RESET + BASE THEME
+   ========================================================== */
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent; /* remove tap flash on mobile */
+}
+
+/* Color theme variables */
+:root {
+  --bg: #0f172a;       /* dark background */
+  --card: #111827;     /* card panels (sidebar, toolbar) */
+  --muted: #94a3b8;    /* muted/secondary text */
+  --text: #f1f5f9;     /* main text */
+  --accent: #22c55e;   /* green = confirm, main action */
+  --accent-2: #60a5fa; /* blue = toggle/selected */
+  --danger: #ef4444;   /* red = errors/mistakes */
+  --hint: #ffcc00;     /* yellow = hints */
+}
+
+body {
+    background: linear-gradient(180deg, #0b1222, var(--bg));
+    color: var(--text);
+    min-height: 100dvh;
+}
+
+/* ==========================================================
+    HEADER
+   ========================================================== */
+.app-header {
+    text-align: center;
+    padding: 16px;
+}
+.app-header h1 {
+    margin: 0 0 4px;
+    font-weight: 800;
+    font-size: 1.5rem;
+}
+.subtitle {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+/* ==========================================================
+    LAYOUT
+   ========================================================== */
+.app {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 16px;
+    padding: 12px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+@media (max-width: 768px) {
+    .app { grid-template-columns: 1fr; }
+    .right { order: -1; }
+}
+
+/* ==========================================================
+    SIDEBAR CARDS + TOOLBAR
+   ========================================================== */
+.card {
+    background: var(--card);
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+}
+.toolbar .row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+.toolbar label { color: var(--muted); }
+
+select, button {
+    background: #0b1020;
+    color: var(--text);
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 1rem;
+    cursor: pointer;
+}
+button.primary {
+    background: var(--accent);
+    color: #0b1020;
+    border-color: transparent;
+    font-weight: 700;
+}
+button.primary:hover { filter: brightness(1.1); }
+button.toggly[aria-pressed="true"] {
+    background: var(--accent-2);
+    color: #0b1020;
+    font-weight: 700;
+}
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+button.danger {
+    background: var(--danger);
+    border-color: transparent;
+    color: white;
+}
+button.danger:hover { filter: brightness(1.1); }
+
+/* ==========================================================
+    SWITCH
+   ========================================================== */
+.switch { position: relative; display: inline-block; width: 44px; height: 26px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #243046;
+    transition: .2s;
+    border-radius: 26px;
+    border: 1px solid #334155;
+}
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 20px; width: 20px;
+    left: 2px; bottom: 2px;
+    background-color: white;
+    transition: .2s;
+    border-radius: 50%;
+}
+.switch input:checked + .slider { background-color: var(--accent-2); }
+.switch input:checked + .slider:before { transform: translateX(18px); }
+
+/* ==========================================================
+    SUDOKU BOARD
+   ========================================================== */
+table.sudoku {
+    width: 100%;
+    max-width: 500px;
+    margin: 10px auto;
+    border-collapse: collapse;
+    background: #fff;
+    border: 6px solid #000;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+@media (max-width: 600px) {
+    table.sudoku { max-width: 100%; }
+}
+.sudoku td.cell {
+    width: calc(100% / 9);
+    aspect-ratio: 1 / 1;
+    text-align: center;
+    vertical-align: middle;
+    font-weight: 700;
+    font-size: 1.5rem;
+    color: #000;
+    background: #fff;
+    border: 1px solid #555;
+    user-select: none;
+    position: relative;
+}
+@media (max-width: 600px) {
+    .sudoku td.cell { font-size: 1.2rem; }
+}
+.sudoku td.prefilled {
+    font-weight: 900;
+    background: #f0f0f0;
+}
+.sudoku td.selected { background: #cce5ff; }
+.sudoku td.conflict { background: #ffcccc; }
+.sudoku td.sameNumber { background: #e6f2ff; }
+.sudoku td.box-right { border-right: 3px solid #000 !important; }
+.sudoku td.box-bottom { border-bottom: 3px solid #000 !important; }
+
+/* Notes */
+.notes {
+    position: absolute;
+    inset: 3px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    font-size: 0.7rem;
+    color: #444;
+}
+.notes.small {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+}
+.note { display: flex; justify-content: center; align-items: center; }
+
+/* ==========================================================
+    NUMPAD
+   ========================================================== */
+.numpad .keys {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    gap: 8px;
+}
+.numpad button {
+    font-size: 1.2rem;
+    font-weight: 800;
+    padding: 16px 0;
+    background: #fff;
+    color: #000;
+    border: 2px solid #000;
+    border-radius: 8px;
+    box-shadow: 2px 2px 0 #555;
+}
+.numpad button:hover { background: #f5f5f5; }
+@media (max-width: 600px) {
+    .numpad .keys { grid-template-columns: repeat(3, 1fr); }
+    .numpad button {
+        font-size: 1.4rem;
+        padding: 18px 0;
+    }
+}
+
+/* ==========================================================
+    SIDEBAR
+   ========================================================== */
+.coach h2, .status h2, .tips h2 {
+    margin: 6px 0 10px;
+    font-size: 1.1rem;
+}
+.stats { display: grid; gap: 6px; font-size: 1rem; }
+.stats div { display: flex; justify-content: space-between; color: var(--muted); }
+
+/* ==========================================================
+    FOOTER
+   ========================================================== */
+.app-footer {
+    text-align: center;
+    padding: 8px 12px 24px;
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+/* ==========================================================
+    MISTAKES
+   ========================================================== */
+.sudoku td.mistakeNumber {
+    color: red !important;
+    font-weight: 900;
+    background: #ffe6e6;
+    border: 2px solid #ff0000;
+    animation: shake 0.3s ease;
+}
+@keyframes shake {
+    0% { transform: translateX(0px); }
+    25% { transform: translateX(-4px); }
+    50% { transform: translateX(4px); }
+    75% { transform: translateX(-4px); }
+    100% { transform: translateX(0px); }
+}
+
+/* ==========================================================
+    GAME OVER / WIN OVERLAY
+   ========================================================== */
+
+.game-over {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+}
+
+/* Content box */
+.game-over .overlay-box {
+    background: #1e293b;
+    border-radius: 16px;
+    padding: 40px 30px;
+    max-width: 460px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 6px 22px rgba(0,0,0,0.55);
+    animation: popIn 0.4s ease;
+}
+@keyframes popIn {
+    from { transform: scale(0.85); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+}
+
+/* Title */
+.game-over h2 {
+    margin: 0 0 24px;   /* space after header */
+    font-size: 2.4rem;
+    font-weight: 800;
+    color: var(--accent);
+}
+
+/* Scores */
+.game-over p {
+    margin: 12px 0;     /* stack score lines with space */
+    font-size: 1.3rem;
+    color: var(--text);
+}
+.game-over strong {
+    color: var(--hint);
+    font-size: 1.6rem;
+}
+
+/* Buttons container always BELOW scores */
+.game-over .buttons {
+    margin-top: 32px;   /* push buttons down */
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+
+/* Buttons */
+.game-over button {
+    padding: 14px 28px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    border-radius: 10px;
+    cursor: pointer;
+    border: none;
+    min-width: 140px;
+}
+.game-over button#nextChallenge {
+    background: var(--accent);
+    color: #0b1020;
+}
+.game-over button#quitGame {
+    background: var(--danger);
+    color: white;
+}
+.game-over button:hover { filter: brightness(1.1); }
+
+
+/* ==========================================================
+    HINT HIGHLIGHT
+   ========================================================== */
+.sudoku td.hint-highlight {
+    background: #fff3b0 !important;
+    outline: 3px solid var(--hint);
+    animation: pulse 0.8s ease-in-out infinite alternate;
+}
+@keyframes pulse {
+    from { transform: scale(1); }
+    to   { transform: scale(1.05); }
+}
+
+/* ==========================================================
+    LEARNING BOX
+   ========================================================== */
+.learn-box summary {
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 1.05rem;
+    color: var(--accent-2);
+}
+.learn-box summary::-webkit-details-marker {
+    font-size: 1.3rem;
+    color: var(--accent);
+}
+.learn-box summary:hover {
+    color: var(--accent);
+    text-decoration: underline;
+}
