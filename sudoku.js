@@ -1,22 +1,22 @@
 /* ==========================================================
-   Sudoku Learn — TABLE VERSION (Vanilla JS)
+    Sudoku Learn — TABLE VERSION (Vanilla JS)
 
-   🚧 Fixes & Features in this build
-   - Stable grid: build whole table at once (<colgroup> + .cell-inner)
-   - No race: build guard + cancellation token for spam clicks
-   - Render numbers only after grid is ready
-   - Hint highlight auto-clears after a valid fill
-   - ✅ Notes mode: add/remove tiny pencil-marks; saved across reloads
+    🚧 Fixes & Features in this build
+    - Stable grid: build whole table at once (<colgroup> + .cell-inner)
+    - No race: build guard + cancellation token for spam clicks
+    - Render numbers only after grid is ready
+    - Hint highlight auto-clears after a valid fill
+    - ✅ Notes mode: add/remove tiny pencil-marks; saved across reloads
    ========================================================== */
 
 /* ----------------------------------------------------------
-   DOM SELECTOR SHORTCUTS
+    DOM SELECTOR SHORTCUTS
    ---------------------------------------------------------- */
 const $  = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
 /* ----------------------------------------------------------
-   SMALL HELPERS
+    SMALL HELPERS
    ---------------------------------------------------------- */
 function fmtTime(sec) {
   const m = String(Math.floor(sec / 60)).padStart(2, "0");
@@ -26,7 +26,7 @@ function fmtTime(sec) {
 function shuffled(arr) { return arr.slice().sort(() => Math.random() - 0.5); }
 
 /* ----------------------------------------------------------
-   GAME STATE (everything lives here)
+    GAME STATE (everything lives here)
    ---------------------------------------------------------- */
 const state = {
   difficulty: "beginner",
@@ -59,7 +59,7 @@ const state = {
 };
 
 /* ----------------------------------------------------------
-   DOM ELEMENTS
+    DOM ELEMENTS
    ---------------------------------------------------------- */
 const difficultySel    = $("#difficulty");
 const gridTable        = $("#gridTable");
@@ -84,17 +84,17 @@ const challengeLabel   = $("#challengeLabel");
 const SAVE_KEY = "sudoku.learn.table.v1";
 
 /* ----------------------------------------------------------
-   BUILD GUARDS (prevent interleaved builds)
+    BUILD GUARDS (prevent interleaved builds)
    ---------------------------------------------------------- */
 let isBuilding = false; // true while we rebuild the grid
 let buildToken = 0;     // incremented to cancel older builds
 
 /* ==========================================================
-   SAVE / LOAD
-   ----------------------------------------------------------
-   Save all the pieces we need to restore a session.
-   Notes are saved as arrays (since Set is not JSON).
-   ========================================================== */
+    SAVE / LOAD
+    ----------------------------------------------------------
+    Save all the pieces we need to restore a session.
+    Notes are saved as arrays (since Set is not JSON).
+    ========================================================== */
 function serializeNotes(notesObj) {
   const out = {};
   for (const [k, set] of Object.entries(notesObj)) out[k] = Array.from(set);
@@ -163,10 +163,10 @@ function clearSave() {
 }
 
 /* ==========================================================
-   DIFFICULTY → BOARD SIZE
-   ----------------------------------------------------------
-   Beginner = 4×4 (box 2×2)
-   Others   = 9×9 (box 3×3)
+    DIFFICULTY → BOARD SIZE
+    ----------------------------------------------------------
+    Beginner = 4×4 (box 2×2)
+    Others   = 9×9 (box 3×3)
    ========================================================== */
 function setBoardSizeFromDifficulty(diff) {
   if (diff === "beginner") {
@@ -177,7 +177,7 @@ function setBoardSizeFromDifficulty(diff) {
 }
 
 /* ==========================================================
-   CHALLENGE LABEL
+    CHALLENGE LABEL
    ========================================================== */
 function updateChallengeLabel() {
   const names = {
@@ -191,7 +191,7 @@ function updateChallengeLabel() {
 }
 
 /* ==========================================================
-   INDEX HELPERS
+    INDEX HELPERS
    ========================================================== */
 function rcToIndex(r, c, N) { return r * N + c; }
 function rowIndices(i, N)   { const r = Math.floor(i / N); return Array.from({ length: N }, (_, c) => rcToIndex(r, c, N)); }
@@ -205,7 +205,7 @@ function boxIndices(i, N, B) {
 }
 
 /* ==========================================================
-   CANDIDATES
+    CANDIDATES
    ========================================================== */
 function usedInRow(i, g, N)     { return new Set(rowIndices(i, N).map(j => g[j]).filter(v => v)); }
 function usedInCol(i, g, N)     { return new Set(colIndices(i, N).map(j => g[j]).filter(v => v)); }
@@ -217,7 +217,7 @@ function candidatesFor(i, g, N, B) {
 }
 
 /* ==========================================================
-   PUZZLE GENERATION
+    PUZZLE GENERATION
    ========================================================== */
 function solveBacktracking(p, N, B, limit = false) {
   const g = p.slice(); let count = 0;
@@ -260,11 +260,11 @@ function generatePuzzle(N, B) {
 }
 
 /* ==========================================================
-   GRID BUILDING (Atomic + guarded)
-   ----------------------------------------------------------
-   We build the entire NxN table as a string (with <colgroup>)
-   and insert once. Each <td> contains a .cell-inner that keeps
-   the square via aspect-ratio — not the <td> itself.
+    GRID BUILDING (Atomic + guarded)
+    ----------------------------------------------------------
+    We build the entire NxN table as a string (with <colgroup>)
+    and insert once. Each <td> contains a .cell-inner that keeps
+    the square via aspect-ratio — not the <td> itself.
    ========================================================== */
 function gridHTML(N, B) {
   let html = '';
@@ -285,7 +285,7 @@ function gridHTML(N, B) {
       html += `
         <td class="cell${boxRight}${boxBottom}" data-idx="${i}">
           <div class="cell-inner"
-               style="width:100%;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;">
+                style="width:100%;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;">
           </div>
         </td>`;
     }
@@ -333,10 +333,10 @@ function ensureNxN() {
 }
 
 /* ==========================================================
-   NOTES (pencil-marks)
-   ----------------------------------------------------------
-   - toggleNote(i, n): add/remove note n in cell i
-   - buildNotesHTML: tiny grid (2×2 for 4×4, 3×3 for 9×9)
+    NOTES (pencil-marks)
+    ----------------------------------------------------------
+    - toggleNote(i, n): add/remove note n in cell i
+    - buildNotesHTML: tiny grid (2×2 for 4×4, 3×3 for 9×9)
    ========================================================== */
 function toggleNote(i, n) {
   if (!state.notes[i]) state.notes[i] = new Set();
@@ -357,11 +357,11 @@ function buildNotesHTML(N, notesSet) {
 }
 
 /* ==========================================================
-   RENDER (writes numbers & state-driven classes)
-   ----------------------------------------------------------
-   - Auto-clears hint highlight if the hinted cell is now filled
-   - Shows notes when cell is empty and has notes
-   ========================================================== */
+    RENDER (writes numbers & state-driven classes)
+    ----------------------------------------------------------
+    - Auto-clears hint highlight if the hinted cell is now filled
+    - Shows notes when cell is empty and has notes
+    ========================================================== */
 function render() {
   // Auto-clear hint highlight if now filled
   if (state.hintTarget != null && state.grid[state.hintTarget] !== 0) {
@@ -412,7 +412,7 @@ function render() {
 }
 
 /* ==========================================================
-   INPUT & GAMEPLAY
+    INPUT & GAMEPLAY
    ========================================================== */
 
 // Event delegation: 1 listener handles all cells
@@ -535,12 +535,12 @@ function isPlacementValid(i) {
   const col = colIndices(i, N).map(j => state.grid[j]);
   const box = boxIndices(i, N, B).map(j => state.grid[j]);
   return row.filter(v => v === val).length === 1 &&
-         col.filter(v => v === val).length === 1 &&
-         box.filter(v => v === val).length === 1;
+          col.filter(v => v === val).length === 1 &&
+          box.filter(v => v === val).length === 1;
 }
 
 /* ==========================================================
-   HINTS
+    HINTS
    ========================================================== */
 function findNakedSingle(g, N, B) {
   for (let i = 0; i < g.length; i++) {
@@ -568,7 +568,7 @@ function hint() {
 }
 
 /* ==========================================================
-   GAME OVER & WIN
+    GAME OVER & WIN
    ========================================================== */
 function gameOver() {
   stopTimer(); state.gameOver = true; coach("💀 Game Over! Out of hearts.");
@@ -642,7 +642,7 @@ function isValidSudoku(g, N, B) {
 }
 
 /* ==========================================================
-   TIMER
+    TIMER
    ========================================================== */
 function startTimer() {
   stopTimer();
@@ -664,7 +664,7 @@ function stopTimer() {
 function coach(msg) { coachMsg.textContent = msg; }
 
 /* ==========================================================
-   LIVES
+    LIVES
    ========================================================== */
 function updateLives() {
   const totalLives = 5;
@@ -673,7 +673,7 @@ function updateLives() {
 }
 
 /* ==========================================================
-   NEW PUZZLE (stable & guarded)
+    NEW PUZZLE (stable & guarded)
    ========================================================== */
 function newGame() {
   if (isBuilding) return;   // ignore spam clicks during build
@@ -713,7 +713,7 @@ function newGame() {
 }
 
 /* ==========================================================
-   RESTART SAME PUZZLE
+    RESTART SAME PUZZLE
    ========================================================== */
 function restartGameSamePuzzle() {
   if (isBuilding) return;
@@ -734,7 +734,7 @@ function restartGameSamePuzzle() {
 }
 
 /* ==========================================================
-   NUMPAD (1..N)
+    NUMPAD (1..N)
    ========================================================== */
 function buildKeys() {
   keysEl.innerHTML = "";
@@ -747,7 +747,7 @@ function buildKeys() {
 }
 
 /* ==========================================================
-   EVENTS + INIT
+    EVENTS + INIT
    ========================================================== */
 newGameBtn.addEventListener("click", newGame);
 restartBtn.addEventListener("click", restartGameSamePuzzle);
@@ -783,7 +783,7 @@ clearProgressBtn.addEventListener("click", () => {
 });
 
 /* ==========================================================
-   INIT
+    INIT
    ========================================================== */
 function init() {
   const had = load();
