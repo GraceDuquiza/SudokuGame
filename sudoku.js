@@ -1,19 +1,27 @@
 /* ==========================================================
     Sudoku Learn — TABLE VERSION (Vanilla JS)
 
-    🚧 Fixes & Features in this build
-    - Stable grid: build whole table at once (<colgroup> + .cell-inner)
-    - No race: build guard + cancellation token for spam clicks
-    - Render numbers only after grid is ready
+    ✅ What this build includes
+    - Stable grid (no shrinking): atomic <colgroup> build + .cell-inner aspect-ratio
+    - Build guard + token to prevent race conditions on rapid clicks
+    - Notes mode with persistence and undo/redo
     - Hint highlight auto-clears after a valid fill
-    - ✅ Notes mode: add/remove tiny pencil-marks; saved across reloads
+    - “Highlight same number”:
+        • Click a filled cell → all same numbers turn blue
+        • Tap a numpad key (with no editable selection) → highlight that digit
+        • After placing a number → highlight that number
+    - NEW: Numpad counters (remaining digits)
+        • Each numpad button shows how many of that digit are still missing
+        • Counts drop toward 0; when 0, button fades (but still highlights)
    ========================================================== */
+
 
 /* ----------------------------------------------------------
     DOM SELECTOR SHORTCUTS
    ---------------------------------------------------------- */
 const $  = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
+
 
 /* ----------------------------------------------------------
     SMALL HELPERS
@@ -25,21 +33,35 @@ function fmtTime(sec) {
 }
 function shuffled(arr) { return arr.slice().sort(() => Math.random() - 0.5); }
 
+// Convert notes {idx:Set} <-> plain object for JSON
+function serializeNotes(notesObj) {
+  const out = {};
+  for (const [k, set] of Object.entries(notesObj)) out[k] = Array.from(set);
+  return out;
+}
+function deserializeNotes(rawObj) {
+  const out = {};
+  for (const [k, arr] of Object.entries(rawObj || {})) out[k] = new Set(arr);
+  return out;
+}
+
+
 /* ----------------------------------------------------------
-    GAME STATE (everything lives here)
+    GAME STATE (single source of truth)
    ---------------------------------------------------------- */
 const state = {
   difficulty: "beginner",
-  size: 9,             // board size: 4 or 9 (set by difficulty)
-  boxSize: 3,          // sub-box size: 2 for 4×4, 3 for 9×9
+  size: 9,                  // 4 or 9 (set by difficulty)
+  boxSize: 3,               // 2 for 4×4, 3 for 9×9
 
-  givens: [],          // initial puzzle numbers (immutable)
-  grid: [],            // current player numbers (0 = empty)
+  givens: [],               // immutable clues
+  grid: [],                 // current entries (0 = empty)
 
-  // Selection & notes
+  // Selection, notes & highlighting
   selected: null,
-  notesMode: false,    // Notes: On/Off
-  notes: {},           // { index: Set(numbers) } — pencil-marks per cell
+  notesMode: false,
+  notes: {},                // { index: Set(numbers) }
+  highlightNumber: null,    // digit to highlight (1..N) or null
 
   // Timer
   startTime: null, elapsed: 0, timerId: null,
@@ -54,9 +76,10 @@ const state = {
   // Scoring
   score: 0, totalScore: 0,
 
-  // Challenge mode label
-  puzzleNumber: 1, totalPuzzles: 20
+  // Challenge label
+  puzzleNumber: 1, totalPuzzles: 20,
 };
+
 
 /* ----------------------------------------------------------
     DOM ELEMENTS
@@ -83,36 +106,24 @@ const challengeLabel   = $("#challengeLabel");
 
 const SAVE_KEY = "sudoku.learn.table.v1";
 
+
 /* ----------------------------------------------------------
-    BUILD GUARDS (prevent interleaved builds)
+    BUILD GUARDS (avoid overlapping builds)
    ---------------------------------------------------------- */
-let isBuilding = false; // true while we rebuild the grid
-let buildToken = 0;     // incremented to cancel older builds
+let isBuilding = false;
+let buildToken = 0;
+
 
 /* ==========================================================
     SAVE / LOAD
-    ----------------------------------------------------------
-    Save all the pieces we need to restore a session.
-    Notes are saved as arrays (since Set is not JSON).
-    ========================================================== */
-function serializeNotes(notesObj) {
-  const out = {};
-  for (const [k, set] of Object.entries(notesObj)) out[k] = Array.from(set);
-  return out;
-}
-function deserializeNotes(rawObj) {
-  const out = {};
-  for (const [k, arr] of Object.entries(rawObj || {})) out[k] = new Set(arr);
-  return out;
-}
-
+   ========================================================== */
 function save() {
   const data = {
     difficulty: state.difficulty,
     size: state.size,
     givens: state.givens,
     grid: state.grid,
-    notes: serializeNotes(state.notes),             // ✅ save notes
+    notes: serializeNotes(state.notes),
     elapsed: state.elapsed + (state.startTime ? Math.floor((Date.now() - state.startTime) / 1000) : 0),
     hintsUsed: state.hintsUsed,
     hintTarget: state.hintTarget,
@@ -130,19 +141,18 @@ function load() {
   if (!raw) return false;
   try {
     const d = JSON.parse(raw);
-    state.difficulty = d.difficulty || "beginner";
+    state.difficulty   = d.difficulty || "beginner";
     setBoardSizeFromDifficulty(state.difficulty);
-
-    state.givens   = d.givens;
-    state.grid     = d.grid;
-    state.notes    = deserializeNotes(d.notes);     // ✅ restore notes
-    state.elapsed  = d.elapsed;
-    state.hintsUsed = d.hintsUsed;
-    state.hintTarget = d.hintTarget ?? null;
-    state.mistakes = d.mistakes;
+    state.givens       = d.givens;
+    state.grid         = d.grid;
+    state.notes        = deserializeNotes(d.notes);
+    state.elapsed      = d.elapsed;
+    state.hintsUsed    = d.hintsUsed;
+    state.hintTarget   = d.hintTarget ?? null;
+    state.mistakes     = d.mistakes;
     state.mistakeCells = new Set(d.mistakeCells);
-    state.score = d.score || 0;
-    state.totalScore = d.totalScore || 0;
+    state.score        = d.score || 0;
+    state.totalScore   = d.totalScore || 0;
     state.puzzleNumber = d.puzzleNumber || 1;
 
     difficultySel.value = state.difficulty;
@@ -162,11 +172,9 @@ function clearSave() {
   coach("🗑️ Progress cleared. Starting fresh!");
 }
 
+
 /* ==========================================================
     DIFFICULTY → BOARD SIZE
-    ----------------------------------------------------------
-    Beginner = 4×4 (box 2×2)
-    Others   = 9×9 (box 3×3)
    ========================================================== */
 function setBoardSizeFromDifficulty(diff) {
   if (diff === "beginner") {
@@ -175,6 +183,7 @@ function setBoardSizeFromDifficulty(diff) {
     state.size = 9; state.boxSize = 3;
   }
 }
+
 
 /* ==========================================================
     CHALLENGE LABEL
@@ -190,6 +199,7 @@ function updateChallengeLabel() {
     `${names[state.difficulty]} Challenge — Puzzle ${state.puzzleNumber} of ${state.totalPuzzles}`;
 }
 
+
 /* ==========================================================
     INDEX HELPERS
    ========================================================== */
@@ -204,6 +214,7 @@ function boxIndices(i, N, B) {
   return v;
 }
 
+
 /* ==========================================================
     CANDIDATES
    ========================================================== */
@@ -215,6 +226,7 @@ function candidatesFor(i, g, N, B) {
   const used = new Set([...usedInRow(i, g, N), ...usedInCol(i, g, N), ...usedInBox(i, g, N, B)]);
   return [...Array(N).keys()].map(x => x + 1).filter(v => !used.has(v));
 }
+
 
 /* ==========================================================
     PUZZLE GENERATION
@@ -259,17 +271,16 @@ function generatePuzzle(N, B) {
   return { puzzle, solution: sol };
 }
 
+
 /* ==========================================================
     GRID BUILDING (Atomic + guarded)
-    ----------------------------------------------------------
-    We build the entire NxN table as a string (with <colgroup>)
-    and insert once. Each <td> contains a .cell-inner that keeps
-    the square via aspect-ratio — not the <td> itself.
+    - Build entire table HTML once (with <colgroup>)
+    - Each <td> has a .cell-inner that keeps squares via aspect-ratio
    ========================================================== */
 function gridHTML(N, B) {
   let html = '';
 
-  // Lock column count & width
+  // Lock column count/width
   html += '<colgroup>';
   for (let c = 0; c < N; c++) html += `<col style="width:${100 / N}%">`;
   html += '</colgroup>';
@@ -296,31 +307,29 @@ function gridHTML(N, B) {
   return html;
 }
 
-/** Build the grid once per new game. Calls render AFTER ready. */
 function buildGridTable() {
-  if (isBuilding) return;          // ignore rapid clicks during build
+  if (isBuilding) return;
   isBuilding = true;
-  const token = ++buildToken;      // cancel any pending/older builds
+  const token = ++buildToken;
 
   const N = state.size, B = state.boxSize;
 
-  // Slightly smaller board for 4×4 (as you requested)
+  // Slightly smaller board for 4×4
   gridTable.style.maxWidth = (N === 4) ? "360px" : "500px";
 
   // Build atomically
   gridTable.innerHTML = gridHTML(N, B);
   gridTable.dataset.n = String(N);
 
-  // Let layout settle, then verify & render real content
+  // Let layout settle, then verify and render
   requestAnimationFrame(() => {
     if (token !== buildToken) { isBuilding = false; return; }
     ensureNxN();
     isBuilding = false;
-    render(); // numbers & classes now apply to actual cells
+    render();
   });
 }
 
-/** Verify the table is exactly NxN; if not, rebuild safely */
 function ensureNxN() {
   const N = state.size;
   const rows = gridTable.querySelectorAll('tbody tr').length;
@@ -332,11 +341,9 @@ function ensureNxN() {
   }
 }
 
+
 /* ==========================================================
     NOTES (pencil-marks)
-    ----------------------------------------------------------
-    - toggleNote(i, n): add/remove note n in cell i
-    - buildNotesHTML: tiny grid (2×2 for 4×4, 3×3 for 9×9)
    ========================================================== */
 function toggleNote(i, n) {
   if (!state.notes[i]) state.notes[i] = new Set();
@@ -346,8 +353,8 @@ function toggleNote(i, n) {
 }
 
 function buildNotesHTML(N, notesSet) {
-  const isSmall = (N === 4);        // 4×4 → 2×2 notes grid
-  const slots   = isSmall ? 4 : 9;  // numbers to display
+  const isSmall = (N === 4);        // 4×4 → 2×2 notes
+  const slots   = isSmall ? 4 : 9;
   let html = `<div class="notes ${isSmall ? 'small' : ''}">`;
   for (let v = 1; v <= slots; v++) {
     html += `<div class="note">${notesSet.has(v) ? v : ""}</div>`;
@@ -356,14 +363,14 @@ function buildNotesHTML(N, notesSet) {
   return html;
 }
 
+
 /* ==========================================================
-    RENDER (writes numbers & state-driven classes)
-    ----------------------------------------------------------
-    - Auto-clears hint highlight if the hinted cell is now filled
-    - Shows notes when cell is empty and has notes
-    ========================================================== */
+    RENDER (writes numbers & state classes only)
+    - Adds .sameNumber to all cells equal to state.highlightNumber
+    - Clears hint highlight if that cell gets filled
+    - NEW: updates numpad counts & “exhausted” style
+   ========================================================== */
 function render() {
-  // Auto-clear hint highlight if now filled
   if (state.hintTarget != null && state.grid[state.hintTarget] !== 0) {
     state.hintTarget = null;
     state.hintValue = null;
@@ -372,11 +379,10 @@ function render() {
   const N = state.size;
 
   $$("#gridTable td.cell").forEach(td => {
-    const i = +td.dataset.idx;
+    const i   = +td.dataset.idx;
     const val = state.grid[i];
     const given = state.givens[i] !== 0;
 
-    // Reset classes (keep sub-box borders)
     td.className = "cell";
     const c = i % N, r = Math.floor(i / N);
     if ((c + 1) % state.boxSize === 0 && c !== N - 1) td.classList.add("box-right");
@@ -387,7 +393,11 @@ function render() {
     if (state.mistakeCells.has(i)) td.classList.add("mistakeNumber");
     if (state.hintTarget === i) td.classList.add("hint-highlight");
 
-    // Write value or notes into .cell-inner
+    // Highlight all same numbers
+    if (state.highlightNumber != null && val === state.highlightNumber) {
+      td.classList.add("sameNumber");
+    }
+
     const inner = td.firstElementChild; // .cell-inner
     if (!inner) return;
 
@@ -403,6 +413,10 @@ function render() {
     }
   });
 
+  // Counters & UI bits
+  updateNumpadCounts();         // NEW
+  updateNumpadActiveStyle();    // NEW
+
   hintsUsedEl.textContent = state.hintsUsed;
   mistakesEl.textContent  = state.mistakes;
   scoreEl.textContent     = `${state.score} (Total: ${state.totalScore})`;
@@ -411,11 +425,60 @@ function render() {
   updateLives();
 }
 
+
+/* ==========================================================
+    HIGHLIGHT CONTROL
+   ========================================================== */
+function setHighlightNumber(num) {
+  state.highlightNumber = (state.highlightNumber === num ? null : num);
+  render();
+}
+
+function updateNumpadActiveStyle() { // NEW: tint active numpad button
+  $$("#keys button").forEach(btn => {
+    const n = +btn.dataset.value;
+    btn.classList.toggle("active", n === state.highlightNumber);
+  });
+}
+
+
+/* ==========================================================
+    NUMPAD COUNTS (NEW)
+    - In a completed NxN Sudoku, each digit 1..N appears exactly N times.
+    - “Remaining” = N minus how many are already on the board (givens + entries).
+   ========================================================== */
+function remainingByDigit() { // NEW: returns array [0..N] where idx v = remaining for digit v
+  const N = state.size;
+  const left = Array(N + 1).fill(N); // 1..N are seeded with N
+  for (const v of state.grid) if (v) left[v]--;
+  // Clamp to 0 in case of temporary overfills
+  for (let v = 1; v <= N; v++) left[v] = Math.max(0, left[v]);
+  return left;
+}
+
+function updateNumpadCounts() { // NEW: write counts under each numpad digit
+  const N = state.size;
+  const left = remainingByDigit();
+  // keep layout rule in sync
+  keysEl.dataset.n = String(N);
+
+  for (let v = 1; v <= N; v++) {
+    const btn = keysEl.querySelector(`button[data-value="${v}"]`);
+    if (!btn) continue;
+    const remainEl = btn.querySelector(".remain");
+    if (remainEl) remainEl.textContent = left[v];
+
+    // Visually “exhaust” when none left (still tappable for highlight)
+    btn.classList.toggle("exhausted", left[v] === 0);
+  }
+}
+
+
 /* ==========================================================
     INPUT & GAMEPLAY
    ========================================================== */
 
-// Event delegation: 1 listener handles all cells
+// Single delegated listener for all cells
 gridTable.addEventListener("click", (e) => {
   const td = e.target.closest("td.cell");
   if (!td || !gridTable.contains(td)) return;
@@ -423,15 +486,22 @@ gridTable.addEventListener("click", (e) => {
 });
 
 function selectCell(i) {
-  if (!state.gameOver) { state.selected = i; render(); }
+  if (state.gameOver) return;
+  state.selected = i;
+
+  // Clicking a filled cell highlights that number everywhere
+  const v = state.grid[i];
+  if (v) state.highlightNumber = (state.highlightNumber === v ? null : v); // toggle if same
+  render();
 }
 
 function pushUndo() {
   state.undoStack.push({
     grid: state.grid.slice(),
-    notes: serializeNotes(state.notes),       // ✅ save notes in history
+    notes: serializeNotes(state.notes),
     selected: state.selected,
-    score: state.score
+    score: state.score,
+    highlightNumber: state.highlightNumber
   });
   state.redoStack = [];
 }
@@ -443,12 +513,14 @@ function undo() {
     grid: state.grid.slice(),
     notes: serializeNotes(state.notes),
     selected: state.selected,
-    score: state.score
+    score: state.score,
+    highlightNumber: state.highlightNumber
   });
   state.grid = s.grid;
-  state.notes = deserializeNotes(s.notes);    // ✅ restore notes
+  state.notes = deserializeNotes(s.notes);
   state.selected = s.selected;
   state.score = s.score;
+  state.highlightNumber = s.highlightNumber ?? null;
   render(); save(); coach("↩️ Undid your last move.");
 }
 
@@ -459,71 +531,94 @@ function redo() {
     grid: state.grid.slice(),
     notes: serializeNotes(state.notes),
     selected: state.selected,
-    score: state.score
+    score: state.score,
+    highlightNumber: state.highlightNumber
   });
   state.grid = s.grid;
-  state.notes = deserializeNotes(s.notes);    // ✅ restore notes
+  state.notes = deserializeNotes(s.notes);
   state.selected = s.selected;
   state.score = s.score;
+  state.highlightNumber = s.highlightNumber ?? null;
   render(); save(); coach("↪️ Redid your move.");
 }
 
 /**
  * Place a number OR toggle a note (if Notes mode is ON).
- * - Notes ON  -> toggle pencil-mark and stop
- * - Notes OFF -> commit value (with validation & scoring)
+ * - Notes ON  → toggle pencil-mark
+ * - Notes OFF → commit value with validation & scoring
+ * Guard: if a digit is exhausted (0 left) and we’re not replacing the same digit,
+ *        block the placement but still allow highlighting.
  */
 function placeNumber(num) {
   if (state.gameOver || state.selected == null) return;
 
+  const selected = state.selected;
+  const canEdit = state.givens[selected] === 0;
+
+  // If we cannot edit the cell, treat as highlight tap
+  if (!canEdit) {
+    setHighlightNumber(num);
+    return;
+  }
+
   // Notes mode: toggle a pencil-mark instead of a final value
   if (state.notesMode) {
-    if (state.givens[state.selected] !== 0) return; // can't note over a given
     pushUndo();
-    toggleNote(state.selected, num);
+    toggleNote(selected, num);
+    state.highlightNumber = num; // follow the digit with highlight
     render(); save();
     return;
   }
 
+  // Guard against overfilling this digit
+  const left = remainingByDigit();
+  const current = state.grid[selected];
+  if (left[num] === 0 && current !== num) {
+    state.highlightNumber = num; // still allow highlight
+    render();
+    coach(`All ${num}’s are already placed.`);
+    return;
+  }
+
   // Normal mode: commit a value
-  if (state.givens[state.selected] !== 0) return; // can't change a given
-
   pushUndo();
-  state.grid[state.selected] = num;
+  state.grid[selected] = num;
 
-  if (!isPlacementValid(state.selected)) {
+  if (!isPlacementValid(selected)) {
     state.mistakes++;
-    state.mistakeCells.add(state.selected);
+    state.mistakeCells.add(selected);
     state.score = Math.max(0, state.score - 5);
     if (state.mistakes >= 5) return gameOver();
     coach("❌ Oops! That number doesn’t fit.");
   } else {
-    state.mistakeCells.delete(state.selected);
+    state.mistakeCells.delete(selected);
     state.score += 10;
     coach("✅ Nice choice!");
 
     // Clear notes in this cell after final entry
-    delete state.notes[state.selected];
+    delete state.notes[selected];
 
-    // If we filled the hinted cell, drop the highlight
-    if (state.hintTarget === state.selected) {
+    // Clear hint highlight if we filled the hinted cell
+    if (state.hintTarget === selected) {
       state.hintTarget = null;
       state.hintValue = null;
     }
   }
+
+  // Follow the entered number with highlight
+  state.highlightNumber = num;
 
   render();
   save();
   checkWin();
 }
 
-/** Erase clears both the value AND any notes in the selected cell. */
 function eraseCell() {
   if (state.gameOver || state.selected == null) return;
   if (state.givens[state.selected] !== 0) return; // don't erase givens
   pushUndo();
   state.grid[state.selected] = 0;
-  delete state.notes[state.selected];              // ✅ also clear notes
+  delete state.notes[state.selected];
   state.mistakeCells.delete(state.selected);
   render(); save(); coach("🧽 Cleared that box.");
 }
@@ -538,6 +633,7 @@ function isPlacementValid(i) {
           col.filter(v => v === val).length === 1 &&
           box.filter(v => v === val).length === 1;
 }
+
 
 /* ==========================================================
     HINTS
@@ -560,12 +656,13 @@ function hint() {
   if (!move) return coach("🤔 No easy hints right now.");
 
   state.hintsUsed++;
-  state.hintTarget = move.idx;   // highlight this cell
-  state.hintValue  = move.value; // remember value (for message only)
+  state.hintTarget = move.idx;
+  state.hintValue  = move.value;
   render();
   coach(`💡 Hint ${state.hintsUsed}/5: This box should be ${move.value}.`);
   save();
 }
+
 
 /* ==========================================================
     GAME OVER & WIN
@@ -641,6 +738,7 @@ function isValidSudoku(g, N, B) {
   return true;
 }
 
+
 /* ==========================================================
     TIMER
    ========================================================== */
@@ -651,7 +749,6 @@ function startTimer() {
     timeEl.textContent = fmtTime(state.elapsed + Math.floor((Date.now() - state.startTime) / 1000));
   }, 1000);
 }
-
 function stopTimer() {
   if (state.timerId) {
     clearInterval(state.timerId);
@@ -660,8 +757,8 @@ function stopTimer() {
     state.timerId = null;
   }
 }
-
 function coach(msg) { coachMsg.textContent = msg; }
+
 
 /* ==========================================================
     LIVES
@@ -671,6 +768,7 @@ function updateLives() {
   const remaining = Math.max(0, totalLives - state.mistakes);
   livesEl.textContent = "❤".repeat(remaining) + "♡".repeat(totalLives - remaining);
 }
+
 
 /* ==========================================================
     NEW PUZZLE (stable & guarded)
@@ -686,31 +784,28 @@ function newGame() {
     gameOver: false, elapsed: 0,
     undoStack: [], redoStack: [],
     score: 0,
-    notes: {}                                   // ✅ clear notes on new puzzle
+    notes: {},                 // clear notes on new puzzle
+    highlightNumber: null      // clear highlight on new puzzle
   });
 
   setBoardSizeFromDifficulty(state.difficulty);
 
-  // Generate a fresh puzzle
   const { puzzle } = generatePuzzle(state.size, state.boxSize);
   state.givens = puzzle.slice();
   state.grid   = puzzle.slice();
 
-  // Temporarily disable button to avoid overlap
   if (newGameBtn) newGameBtn.disabled = true;
 
-  // Build table and keys; render will be called from buildGridTable()
-  buildGridTable();
-  buildKeys();
+  buildGridTable(); // render is called inside after layout settles
+  buildKeys();      // builds 1..N buttons and counters
 
-  // Reset timer & save
   timeEl.textContent = "00:00";
   startTimer();
   save();
 
-  // Re-enable shortly (after layout settles)
   setTimeout(() => { if (newGameBtn) newGameBtn.disabled = false; }, 300);
 }
+
 
 /* ==========================================================
     RESTART SAME PUZZLE
@@ -725,26 +820,80 @@ function restartGameSamePuzzle() {
     gameOver: false, elapsed: 0,
     undoStack: [], redoStack: [],
     score: 0,
-    notes: {}                                   // ✅ clear notes on restart
+    notes: {},                 // clear notes on restart
+    highlightNumber: null
   });
-  buildGridTable(); // clean rebuild; render will run afterwards
+  buildGridTable();
+  buildKeys();
   timeEl.textContent = "00:00";
   startTimer();
   save();
 }
 
+
 /* ==========================================================
-    NUMPAD (1..N)
+    NUMPAD (1..N) — counters + interactions
    ========================================================== */
 function buildKeys() {
   keysEl.innerHTML = "";
-  for (let v = 1; v <= state.size; v++) {
+  const N = state.size;
+  keysEl.dataset.n = String(N); // for CSS layout
+
+  for (let v = 1; v <= N; v++) {
     const b = document.createElement("button");
-    b.textContent = v;
-    b.addEventListener("click", () => placeNumber(v));
+
+    // NEW: structure = big digit + small remaining count
+    b.innerHTML = `
+      <div class="digit">${v}</div>
+      <div class="remain">0</div>
+    `;
+    b.dataset.value = String(v);
+
+    // Click behavior:
+    // - If we can edit a selected cell → place/notes with guards
+    // - Else → just (toggle) highlight this digit
+    b.addEventListener("click", () => {
+      const selected = state.selected;
+      const canEdit = selected != null && state.givens[selected] === 0;
+
+      if (!canEdit) {
+        setHighlightNumber(v);
+        return;
+      }
+      placeNumber(v);
+      state.highlightNumber = v;
+      render();
+    });
+
     keysEl.appendChild(b);
   }
+
+  updateNumpadCounts();      // seed counts right away
+  updateNumpadActiveStyle(); // seed highlight style
 }
+
+
+/* ==========================================================
+    KEYBOARD SUPPORT (optional but handy)
+   ========================================================== */
+document.addEventListener("keydown", (e) => {
+  const n = Number(e.key);
+  if (!Number.isInteger(n)) return;
+  if (n < 1 || n > state.size) return;
+
+  const selected = state.selected;
+  const canEdit = selected != null && state.givens[selected] === 0;
+
+  if (!canEdit) {
+    setHighlightNumber(n);     // highlight only
+    return;
+  }
+
+  placeNumber(n);              // commit or note
+  state.highlightNumber = n;   // follow the number
+  render();
+});
+
 
 /* ==========================================================
     EVENTS + INIT
@@ -782,6 +931,7 @@ clearProgressBtn.addEventListener("click", () => {
   coach("Save cleared");
 });
 
+
 /* ==========================================================
     INIT
    ========================================================== */
@@ -789,7 +939,7 @@ function init() {
   const had = load();
   setBoardSizeFromDifficulty(state.difficulty);
 
-  // Safety: fix weird saved sizes
+  // Safety: if saved size is weird, reset to beginner
   if (![4, 9].includes(state.size)) {
     console.warn("⚠️ Invalid board size detected:", state.size, "→ Resetting to 4");
     state.difficulty = "beginner";
@@ -798,13 +948,13 @@ function init() {
   }
 
   if (had) {
-    buildGridTable(); // render is called after build settles
+    buildGridTable();
     buildKeys();
     startTimer();
   } else {
     state.difficulty = difficultySel.value;
     setBoardSizeFromDifficulty(state.difficulty);
-    newGame(); // builds + renders + starts timer
+    newGame();
   }
 }
 init();

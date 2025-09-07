@@ -1,26 +1,37 @@
 /* ==========================================================
     RESET + BASE THEME
-    - Normalize box model
-    - Define the color system
-    ========================================================== */
+    - Normalize layout & define a color system
+   ========================================================== */
 * { box-sizing: border-box; }
 
 html, body {
     margin: 0;
     padding: 0;
     font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    -webkit-tap-highlight-color: transparent; /* remove tap flash on mobile */
+    -webkit-tap-highlight-color: transparent; /* removes tap flash on mobile */
 }
 
+/* Theme colors + a single source of truth for cell font size */
 :root {
-  --bg: #0f172a;       /* dark background */
-  --card: #111827;     /* card panels (sidebar, toolbar) */
-  --muted: #94a3b8;    /* muted/secondary text */
-  --text: #f1f5f9;     /* main text */
-  --accent: #22c55e;   /* green = confirm, main action */
-  --accent-2: #60a5fa; /* blue = toggle/selected */
-  --danger: #ef4444;   /* red = errors/mistakes */
-  --hint: #ffcc00;     /* yellow = hints */
+  --bg: #0f172a;        /* dark background */
+  --card: #111827;      /* card panels (sidebar, toolbar) */
+  --muted: #94a3b8;     /* muted/secondary text */
+  --text: #f1f5f9;      /* main text */
+  --accent: #22c55e;    /* green = confirm, main action */
+  --accent-2: #60a5fa;  /* blue = toggle/selected */
+  --danger: #ef4444;    /* red = errors/mistakes */
+  --hint: #ffcc00;      /* yellow = hints */
+
+  /* ✅ One font-size used by BOTH 4×4 and 9×9 numbers */
+    --cell-font: clamp(1.05rem, 2.6vw, 1.6rem);
+
+  /* ✅ GAME FONT (grid + numpad): Cambria Math with safe fallbacks */
+  --game-font: "Cambria Math", Cambria, "Times New Roman", serif; /* <-- NEW */
+}
+
+@media (max-width: 600px) {
+  /* Slightly different scaling on small phones, still UNIFORM for 4×4 & 9×9 */
+    :root { --cell-font: clamp(1rem, 5.5vw, 1.45rem); }
 }
 
 body {
@@ -32,23 +43,12 @@ body {
 /* ==========================================================
     HEADER
    ========================================================== */
-.app-header {
-    text-align: center;
-    padding: 16px;
-}
-.app-header h1 {
-    margin: 0 0 4px;
-    font-weight: 800;
-    font-size: 1.5rem;
-}
-.subtitle {
-    margin: 0;
-    color: var(--muted);
-    font-size: 0.9rem;
-}
+.app-header { text-align: center; padding: 16px; }
+.app-header h1 { margin: 0 0 4px; font-weight: 800; font-size: 1.5rem; }
+.subtitle { margin: 0; color: var(--muted); font-size: 0.9rem; }
 
 /* ==========================================================
-    LAYOUT (main two-column grid → collapses to one column)
+    LAYOUT (2 columns → 1 column on mobile)
    ========================================================== */
 .app {
     display: grid;
@@ -60,7 +60,7 @@ body {
 }
 @media (max-width: 768px) {
     .app { grid-template-columns: 1fr; }
-    .right { order: -1; } /* move sidebar above board on mobile */
+    .right { order: -1; } /* sidebar above board on mobile */
 }
 
 /* ==========================================================
@@ -73,7 +73,6 @@ body {
     padding: 12px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.25);
 }
-
 .toolbar .row {
     display: flex;
     gap: 8px;
@@ -117,199 +116,158 @@ button.danger:hover { filter: brightness(1.1); }
    ========================================================== */
 .switch { position: relative; display: inline-block; width: 44px; height: 26px; }
 .switch input { opacity: 0; width: 0; height: 0; }
-
 .slider {
-    position: absolute;
-    cursor: pointer;
-    inset: 0;
-    background-color: #243046;
-    transition: .2s;
-    border-radius: 26px;
-    border: 1px solid #334155;
+    position: absolute; inset: 0; cursor: pointer;
+    background-color: #243046; border: 1px solid #334155;
+    transition: .2s; border-radius: 26px;
 }
 .slider:before {
-    position: absolute;
-    content: "";
-    height: 20px; width: 20px;
-    left: 2px; bottom: 2px;
-    background-color: white;
+    content: ""; position: absolute; left: 2px; bottom: 2px;
+    height: 20px; width: 20px; background: #fff; border-radius: 50%;
     transition: .2s;
-    border-radius: 50%;
 }
 .switch input:checked + .slider { background-color: var(--accent-2); }
 .switch input:checked + .slider:before { transform: translateX(18px); }
 
 /* ==========================================================
     SUDOKU BOARD
-    - table-layout: fixed ensures equal column math
-    - aspect ratio lives on .cell-inner (not on <td>)
+    - Equal column math via table-layout: fixed
+    - The square aspect lives on .cell-inner
    ========================================================== */
 table.sudoku {
     width: 100%;
-    max-width: 500px;               /* default board width (9×9) */
+    max-width: 500px;                 /* default board width (9×9) */
     margin: 10px auto;
     border-collapse: collapse;
     background: #fff;
     border: 6px solid #000;
     box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-    table-layout: fixed;            /* lock column widths */
+    table-layout: fixed;              /* lock columns */
 }
-@media (max-width: 600px) {
-    table.sudoku { max-width: 100%; }
-}
+@media (max-width: 600px) { table.sudoku { max-width: 100%; } }
 
-/* each grid cell box (no aspect ratio here) */
+/* Each grid cell container (no aspect-ratio here) */
 .sudoku td.cell {
+    position: relative;
     text-align: center;
     vertical-align: middle;
     border: 1px solid #ccc;
     user-select: none;
-    position: relative;
-    padding: 0;                     /* remove default padding */
+    padding: 0;
 }
 
-/* inner square that keeps a perfect 1:1 box and centers the number */
+/* The square, centered number */
 .sudoku td.cell .cell-inner {
     width: 100%;
     aspect-ratio: 1 / 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 700;
-    font-size: 1.5rem;
+    font-weight: 800;
+    font-size: var(--cell-font);           /* UNIFORM number size */
+    font-family: var(--game-font);         /* ✅ GAME FONT applied */
     color: #000;
     background: #fff;
 }
 
-@media (max-width: 600px) {
-    .sudoku td.cell .cell-inner { font-size: 1.2rem; }
+/* ==========================================================
+   CELL STATES (apply color to the *box*, not just borders)
+   ========================================================== */
+.sudoku td.prefilled .cell-inner { background: #f0f0f0; }  /* given clues */
+.sudoku td.selected  .cell-inner { background: #d2e4f6; }  /* current cell */
+.sudoku td.conflict  .cell-inner { background: #f59292; }  /* conflicting */
+
+/* 🔵 Same-number highlight (clear, not too dark) */
+.sudoku td.sameNumber .cell-inner { background: #5da7f6; }
+
+/* 🔴 Mistake styling: light red fill + keep red border/text */
+.sudoku td.mistakeNumber .cell-inner { background: #f69292; }
+.sudoku td.mistakeNumber {
+    color: red !important;
+    border: 2px solid #ff0000;
 }
 
-/* states & heavy borders for sub-boxes */
-.sudoku td.prefilled { font-weight: 900; background: #f0f0f0; }
-.sudoku td.selected  { background: #cce5ff; }
-.sudoku td.conflict  { background: #ffcccc; }
-.sudoku td.sameNumber{ background: #e6f2ff; }
+/* Heavy borders for sub-boxes stay on the td */
 .sudoku td.box-right  { border-right: 3px solid #000 !important; }
 .sudoku td.box-bottom { border-bottom: 3px solid #000 !important; }
 
 /* ==========================================================
     NOTES OVERLAY (tiny pencil marks)
-    - optional; appears inside a cell positioned absolutely
    ========================================================== */
 .notes {
-    position: absolute;
-    inset: 3px;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    position: absolute; inset: 3px;
+    display: grid; grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(3, 1fr);
-    font-size: 0.7rem;
-    color: #444;
+    font-size: 0.7rem; color: #444;
+    font-family: var(--game-font);         /* ✅ GAME FONT on notes too */
 }
-.notes.small {
-    grid-template-columns: repeat(2, 1fr);
-    grid-template-rows: repeat(2, 1fr);
-}
+.notes.small { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); }
 .note { display: flex; justify-content: center; align-items: center; }
 
 /* ==========================================================
-    NUMPAD (centered + responsive)
-    - keys get a data-n="4|9" (set in JS) to choose layouts
-    ========================================================== */
-/* ==========================================================
-    NUMPAD (centered)
-    - JS sets keysEl.dataset.n = "4" or "9"
-    - For 4×4 we use FLEX so it is always one horizontal row
-    - For 9×9 we keep a grid (9 across desktop, 3 across phones)
-    ========================================================== */
+    NUMPAD — horizontal rail with digit + remaining counter
+   ========================================================== */
+.numpad { display: flex; justify-content: center; }
 
-.numpad {
-    display: flex;                  /* center the keys block */
-    justify-content: center;
-}
-
+/* Single row, never wraps; scrolls horizontally on small screens */
 .numpad .keys {
-    margin: 0 auto;
+    display: flex;
     gap: 12px;
-}
-
-/* ------- 4×4: one horizontal line, centered ------- */
-.numpad .keys[data-n="4"] {
-    display: flex;                  /* single row */
     justify-content: center;
     align-items: center;
-    flex-wrap: nowrap;              /* never wrap */
-    width: fit-content;             /* shrink to buttons so centering is exact */
-}
-
-/* ------- 9×9: grid on wider screens ------- */
-.numpad .keys[data-n="9"] {
-    display: grid;
-    grid-template-columns: repeat(9, 1fr);
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 6px 8px;
     width: 100%;
-    max-width: 640px;               /* keeps buttons from stretching too wide */
-    justify-content: center;
+    max-width: 100%;
 }
+.numpad .keys::-webkit-scrollbar { height: 8px; }
+.numpad .keys::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+.numpad .keys { scrollbar-color: #334155 transparent; scrollbar-width: thin; }
 
-/* Buttons */
+/* Buttons show two lines: .digit (big) + .remain (small) */
 .numpad button {
-    font-size: 1.2rem;
-    font-weight: 800;
-    padding: 16px 0;
-    min-width: 64px;                /* keeps 4 buttons same size in a single row */
-    background: #fff;
-    color: #000;
-    border: 2px solid #000;
-    border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    flex: 0 0 auto;                     /* don’t shrink; keep width */
+    font-size: 1.2rem; font-weight: 800;
+    padding: 16px 0; min-width: 64px;
+    background: #fff; color: #000;
+    border: 2px solid #000; border-radius: 8px;
     box-shadow: 2px 2px 0 #555;
+    transition: transform .06s ease, box-shadow .06s ease, background .12s ease, opacity .12s ease;
+    font-family: var(--game-font);       /* ✅ GAME FONT on whole button */
 }
 .numpad button:hover { background: #f5f5f5; }
 
-/* ------- Phone tweaks ------- */
-@media (max-width: 600px) {
-    /* 4×4 stays a single centered row of 4 */
-    .numpad .keys[data-n="4"] { /* nothing extra needed */ }
+/* Large digit (top) + remaining count (bottom) */
+.numpad .digit  { font-size: 1.9rem; line-height: 1; font-weight: 800; color: #1f59d1; font-family: var(--game-font); } /* ✅ */
+.numpad .remain { font-size: 0.80rem; line-height: 2; color: #374151; opacity: 0.9; font-family: var(--game-font); }  /* ✅ */
 
-    /* 9×9 becomes 3 per row on phones for usability */
-    .numpad .keys[data-n="9"] { grid-template-columns: repeat(3, 1fr); }
+/* Active/exhausted states */
+.numpad button.active    { background: #cfe1ff; border-color: #1f2937; box-shadow: 2px 2px 0 #1f2937; }
+.numpad button.exhausted { opacity: 0.45; }
+.numpad button.exhausted .digit,
+.numpad button.exhausted .remain { color: #6b7280; }
 
-    .numpad button { font-size: 1.4rem; padding: 18px 0; }
+/* Small-phone tweaks */
+@media (max-width: 360px) {
+    .numpad .digit { font-size: 1.6rem; }
+    .numpad .remain { font-size: 0.9rem; }
+    .numpad button { min-width: 56px; padding: 14px 0; }
 }
-
-
-
-
 
 /* ==========================================================
-    SIDEBAR (Coach / Status / Tips)
+    FOOTER / SIDEBAR (Coach / Status / Tips)
    ========================================================== */
-.coach h2, .status h2, .tips h2 {
-    margin: 6px 0 10px;
-    font-size: 1.1rem;
-}
+.coach h2, .status h2, .tips h2 { margin: 6px 0 10px; font-size: 1.1rem; }
 .stats { display: grid; gap: 6px; font-size: 1rem; }
 .stats div { display: flex; justify-content: space-between; color: var(--muted); }
+.app-footer { text-align: center; padding: 8px 12px 24px; color: var(--muted); font-size: 0.85rem; }
 
 /* ==========================================================
-    FOOTER
+    MISTAKES (shake animation kept)
    ========================================================== */
-.app-footer {
-    text-align: center;
-    padding: 8px 12px 24px;
-    color: var(--muted);
-    font-size: 0.85rem;
-}
-
-/* ==========================================================
-    MISTAKES (shake + red style)
-   ========================================================== */
-.sudoku td.mistakeNumber {
-    color: red !important;
-    font-weight: 900;
-    background: #ffe6e6;
-    border: 2px solid #ff0000;
-    animation: shake 0.3s ease;
-}
 @keyframes shake {
     0% { transform: translateX(0px); }
     25% { transform: translateX(-4px); }
@@ -322,59 +280,24 @@ table.sudoku {
     GAME OVER / WIN OVERLAY
    ========================================================== */
 .game-over {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.85);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    padding: 20px;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; padding: 20px;
 }
 .game-over .overlay-box {
-    background: #1e293b;
-    border-radius: 16px;
-    padding: 40px 30px;
-    max-width: 460px;
-    width: 100%;
-    text-align: center;
-    box-shadow: 0 6px 22px rgba(0,0,0,0.55);
-    animation: popIn 0.4s ease;
+    background: #1e293b; border-radius: 16px; padding: 40px 30px;
+    max-width: 460px; width: 100%; text-align: center;
+    box-shadow: 0 6px 22px rgba(0,0,0,0.55); animation: popIn 0.4s ease;
 }
 @keyframes popIn {
     from { transform: scale(0.85); opacity: 0; }
     to   { transform: scale(1); opacity: 1; }
 }
-.game-over h2 {
-    margin: 0 0 24px;
-    font-size: 2.4rem;
-    font-weight: 800;
-    color: var(--accent);
-}
-.game-over p {
-    margin: 12px 0;
-    font-size: 1.3rem;
-    color: var(--text);
-}
-.game-over strong {
-    color: var(--hint);
-    font-size: 1.6rem;
-}
-.game-over .buttons {
-    margin-top: 32px;
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-}
-.game-over button {
-    padding: 14px 28px;
-    font-size: 1.1rem;
-    font-weight: 700;
-    border-radius: 10px;
-    cursor: pointer;
-    border: none;
-    min-width: 140px;
-}
+.game-over h2 { margin: 0 0 24px; font-size: 2.4rem; font-weight: 800; color: var(--accent); }
+.game-over p  { margin: 12px 0; font-size: 1.3rem; color: var(--text); }
+.game-over strong { color: var(--hint); font-size: 1.6rem; }
+.game-over .buttons { margin-top: 32px; display: flex; justify-content: center; gap: 20px; }
+.game-over button { padding: 14px 28px; font-size: 1.1rem; font-weight: 700; border-radius: 10px; cursor: pointer; border: none; min-width: 140px; }
 .game-over button#nextChallenge { background: var(--accent); color: #0b1020; }
 .game-over button#quitGame     { background: var(--danger); color: #fff; }
 .game-over button:hover        { filter: brightness(1.1); }
@@ -382,8 +305,8 @@ table.sudoku {
 /* ==========================================================
     HINT HIGHLIGHT (pulsing yellow)
    ========================================================== */
+.sudoku td.hint-highlight .cell-inner { background: #fff3b0 !important; }
 .sudoku td.hint-highlight {
-    background: #fff3b0 !important;
     outline: 3px solid var(--hint);
     animation: pulse 0.8s ease-in-out infinite alternate;
 }
@@ -393,34 +316,8 @@ table.sudoku {
 }
 
 /* ==========================================================
-    LEARNING BOX (details/summary)
-   ========================================================== */
-.learn-box summary {
-    font-weight: 700;
-    cursor: pointer;
-    font-size: 1.05rem;
-    color: var(--accent-2);
-}
-.learn-box summary::-webkit-details-marker {
-    font-size: 1.3rem;
-    color: var(--accent);
-}
-.learn-box summary:hover {
-    color: var(--accent);
-    text-decoration: underline;
-}
-
-/* ==========================================================
     BOARD SIZE TWEAKS FOR 4×4
-    - JS sets data-n="4" on the table
-   ========================================================== */
-table.sudoku[data-n="4"] {
-    max-width: 320px; /* more compact board for 4×4 */
-}
-table.sudoku[data-n="4"] td.cell .cell-inner {
-    font-size: 1.1rem; /* slightly smaller numbers on 4×4 */
-}
-@media (max-width: 600px) {
-    table.sudoku[data-n="4"] { max-width: 260px; }
-    table.sudoku[data-n="4"] td.cell .cell-inner { font-size: 1rem; }
-}
+    - Only width; NO font-size override so digits stay UNIFORM
+========================================================== */
+table.sudoku[data-n="4"] { max-width: 320px; }
+@media (max-width: 600px) { table.sudoku[data-n="4"] { max-width: 260px; } }
