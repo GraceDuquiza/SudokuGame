@@ -106,7 +106,7 @@
             <h2>Status</h2>
             <div class="stats">
             <div><span>Score:</span> <strong id="score">0</strong></div>
-            <div><span>Time:</span> <strong id="time">00:00</strong></div>
+            <div><span>Best time:</span> <strong id="bestTime">—</strong></div>
             <div><span>Hints:</span> <strong id="hintsUsed">0</strong></div>
             <div>
                 <span>Mistakes:</span>
@@ -116,6 +116,18 @@
             </div>
             <button id="clearProgress" class="danger">🗑️ Clear Save</button>
         </div>
+        
+        <!-- Timer controls -->
+        <div class="timer" aria-label="Timer controls">
+        <span id="clock" class="timer-clock" aria-live="polite">00:00</span>
+        <div class="timer-actions">
+            <button id="btn-pause"  type="button" title="Pause (Space)">Pause</button>
+            <button id="btn-resume" type="button" title="Resume (Space)" hidden>Resume</button>
+            <button id="btn-stop"   type="button" title="Stop (Shift+S)">Stop</button>
+        </div>
+        </div>
+
+
 
         <!-- Tips -->
         <div class="card tips">
@@ -136,7 +148,8 @@
         <small>Made for learning by GDO ❤❤❤</small>
     </footer>
 
-    <!-- Script -->
     <script src="sudoku.js"></script>
+
+
 </body>
 </html>

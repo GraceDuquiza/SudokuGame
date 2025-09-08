@@ -26,7 +26,7 @@ html, body {
     --cell-font: clamp(1.05rem, 2.6vw, 1.6rem);
 
   /* ✅ GAME FONT (grid + numpad): Cambria Math with safe fallbacks */
-  --game-font: "Cambria Math", Cambria, "Times New Roman", serif; /* <-- NEW */
+    --game-font: "Cambria Math", Cambria, "Times New Roman", serif;
 }
 
 @media (max-width: 600px) {
@@ -110,6 +110,17 @@ button.danger {
     color: white;
 }
 button.danger:hover { filter: brightness(1.1); }
+
+/* ✅ UPDATED: make ONLY the "Clear Save" button smaller & calmer */
+#clearProgress {
+    font-size: .82rem;              /* smaller text */
+    padding: .35rem .6rem;          /* tighter padding */
+    border-radius: .5rem;
+    line-height: 1.1;
+    opacity: .95;
+    margin-top: 6px;
+}
+#clearProgress:hover { filter: brightness(1.05); }
 
 /* ==========================================================
     iOS-STYLE TOGGLE SWITCH
@@ -241,8 +252,8 @@ table.sudoku {
 .numpad button:hover { background: #f5f5f5; }
 
 /* Large digit (top) + remaining count (bottom) */
-.numpad .digit  { font-size: 1.9rem; line-height: 1; font-weight: 800; color: #1f59d1; font-family: var(--game-font); } /* ✅ */
-.numpad .remain { font-size: 0.80rem; line-height: 2; color: #374151; opacity: 0.9; font-family: var(--game-font); }  /* ✅ */
+.numpad .digit  { font-size: 1.9rem; line-height: 1; font-weight: 800; color: #1f59d1; font-family: var(--game-font); }
+.numpad .remain { font-size: 0.80rem; line-height: 2; color: #374151; opacity: 0.9; font-family: var(--game-font); }
 
 /* Active/exhausted states */
 .numpad button.active    { background: #cfe1ff; border-color: #1f2937; box-shadow: 2px 2px 0 #1f2937; }
@@ -318,6 +329,61 @@ table.sudoku {
 /* ==========================================================
     BOARD SIZE TWEAKS FOR 4×4
     - Only width; NO font-size override so digits stay UNIFORM
-========================================================== */
+   ========================================================== */
 table.sudoku[data-n="4"] { max-width: 320px; }
 @media (max-width: 600px) { table.sudoku[data-n="4"] { max-width: 260px; } }
+
+/* ==========================================================
+    TIMER + BEST TIME
+    - Smaller, centered, and visually aligned with the Status card
+   ========================================================== */
+
+/* ✅ UPDATED: center the whole timer block and keep it compact */
+.timer {
+    display: flex;
+    align-items: center;
+    justify-content: center;          /* center contents horizontally */
+    gap: .5rem;                       /* tight spacing */
+    width: 100%;
+    margin: 8px 0;                    /* small vertical rhythm */
+    text-align: center;               /* ensures inline text is centered too */
+}
+
+/* ✅ UPDATED: smaller clock with muted color to match Status */
+.timer-clock {
+    font-variant-numeric: tabular-nums; /* fixed-width digits (no jitter) */
+    font-weight: 600;
+    font-size: clamp(.9rem, 1.3vw, 1.05rem);
+    line-height: 1;
+    letter-spacing: .01em;
+    color: var(--muted);                 /* match Status muted tone */
+}
+
+/* ✅ UPDATED: smaller buttons so the timer feels unobtrusive */
+.timer-actions button {
+    font-size: .8rem;
+    padding: .3rem .55rem;
+    border-radius: .5rem;
+}
+
+.timer-actions button[hidden] {
+    display: none !important;
+}
+
+/* Best time (Status card only) — neutral & subtle */
+#bestTime {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    font-size: clamp(.8rem, 1.2vw, .9rem);
+    color: var(--muted);
+    opacity: .95;
+}
+
+/* Tiny screens — nudge sizes down a bit more */
+@media (max-width: 420px) {
+    .timer-clock { font-size: .85rem; }
+    .timer-actions button {
+        font-size: .75rem;
+        padding: .25rem .45rem;
+    }
+}
