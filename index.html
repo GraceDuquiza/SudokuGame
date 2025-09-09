@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <!-- Mobile-friendly layout -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Sudoku — Learn While You Play</title>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="style.css" />
+
+    <!-- Icons -->
+    <link rel="icon" href="data:," />
+    <link rel="icon" type="image/png" sizes="192x192" href="icon192.png" />
+    <link rel="apple-touch-icon" href="icon192.png" />
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#22c55e" />
+
+    <!-- SEO -->
+    <meta name="description" content="Kid-friendly Sudoku with real table grid. Includes hints, notes, undo/redo, timer, mistakes, and challenge levels.">
+    </head>
+
+    <body>
+    <!-- ==========================================================
+        HEADER
+    ========================================================== -->
+    <header class="app-header">
+        <h1>Sudoku — Learn While You Play</h1>
+        <p class="subtitle">Fun puzzles that get harder as you level up 🎮 EG/AS</p>
+    </header>
+
+    <!-- ==========================================================
+        APP LAYOUT
+        Desktop: 2 columns (.left = gameplay, .right = sidebar)
+        Mobile:  1 column — order is controlled by CSS.
+        NOTE: For browsers without :has(), we rely on the helper
+                classes .challenge-card and .board-card below.
+    ========================================================== -->
+    <main class="app">
+        <!-- =========================
+            LEFT COLUMN (Gameplay)
+        ========================== -->
+        <section class="left">
+
+        <!-- Challenge label (helper class for non-:has() fallback) -->
+        <div class="card challenge-card" style="text-align:center;">
+            <h2 id="challengeLabel">🌱 Beginner Challenge — Puzzle 1 of 20</h2>
+        </div>
+
+        <!-- Timer -->
+        <div class="timer card" aria-label="Timer controls">
+            <span id="clock" class="timer-clock" aria-live="polite">00:00</span>
+            <div class="timer-actions">
+            <button id="btn-pause"  type="button" title="Pause (Space)">Pause</button>
+            <button id="btn-resume" type="button" title="Resume (Space)" hidden>Resume</button>
+            <button id="btn-stop"   type="button" title="Stop (Shift+S)">Stop</button>
+            </div>
+        </div>
+
+        <!-- Toolbar (compact; buttons sized to text) -->
+        <div class="toolbar card" aria-label="Game controls">
+            <div class="row">
+            <label for="difficulty">Choose Challenge</label>
+            <select id="difficulty" aria-label="Difficulty">
+                <option value="beginner">🌱 Beginner (4×4)</option>
+                <option value="intermediate">⭐ Intermediate (9×9)</option>
+                <option value="advanced">🔥 Advanced (9×9)</option>
+                <option value="expert">🏆 Expert (9×9)</option>
+            </select>
+
+            <button id="newGame" class="primary" type="button">🎲 New Puzzle</button>
+            <button id="restartGame" type="button" title="Restart same puzzle">🔄 Restart</button>
+            </div>
+
+            <div class="row">
+            <button id="hintBtn" type="button">💡 Hint</button>
+            <button id="notesToggle" class="toggly" aria-pressed="false" type="button">📝 Notes: Off</button>
+            <button id="undoBtn" type="button" title="Undo">↩️ Undo</button>
+            <button id="redoBtn" type="button" title="Redo">↪️ Redo</button>
+            <button id="eraseBtn" type="button" title="Erase cell">❌ Erase</button>
+            </div>
+        </div>
+
+        <!-- Board (helper class for non-:has() fallback) -->
+        <div class="card board-card">
+            <table id="gridTable" class="sudoku" role="grid" aria-label="Sudoku grid"></table>
+        </div>
+
+        <!-- Numpad (buttons injected by JS) -->
+        <div class="numpad card" aria-label="Number pad">
+            <div id="keys" class="keys"></div>
+        </div>
+        </section>
+
+        <!-- =========================
+            RIGHT COLUMN (Sidebar)
+        ========================== -->
+        <aside class="right">
+
+        <!-- Status -->
+        <div class="card status" aria-label="Game status">
+            <div class="stats">
+            <div><span>Score:</span> <strong id="score">0</strong></div>
+            <div><span>Best time:</span> <strong id="bestTime">—</strong></div>
+            <div><span>Hints:</span> <strong id="hintsUsed">0</strong></div>
+            <div>
+                <span>Mistakes:</span>
+                <strong id="mistakes">0</strong>
+                <span id="lives" aria-label="Lives">❤❤❤❤❤</span>
+            </div>
+            </div>
+            <button id="clearProgress" class="danger danger--sm" type="button">🗑️ Clear Save</button>
+        </div>
+
+        <!-- Coach -->
+        <div class="card coach">
+            <h2>Coach</h2>
+            <p id="coachMsg" aria-live="polite">
+            👆 Tap a box, then tap a number below.
+            Not sure? Turn on “Notes” to try small numbers first!
+            </p>
+
+            <details class="learn-box">
+            <summary>📘 What you’ll learn today ⬇</summary>
+            <ul>
+                <li><strong>Main Rule:</strong> Each row, column, and box must have all numbers once. No repeats!</li>
+                <li><strong>Easy Spot:</strong> If only one number fits in a box, that’s the answer.</li>
+                <li><strong>Only Choice:</strong> In some rows/columns/boxes, only one cell can hold a number. That’s the right spot!</li>
+            </ul>
+            </details>
+        </div>
+
+        <!-- Tips -->
+        <div class="card tips">
+            <h2>Tips</h2>
+            <ul>
+            <li>🎲 <strong>New Puzzle</strong> — Get a brand-new board. Pick your level first in “Choose Challenge.”</li>
+            <li>🔄 <strong>Restart</strong> — Start this same puzzle over from the beginning.</li>
+            <li>↩️ <strong>Undo</strong> — Go back one move. You can press it many times.</li>
+            <li>↪️ <strong>Redo</strong> — Go forward again if you undid something by mistake.</li>
+            <li>🧽 <strong>Erase</strong> — Clear the selected box. (You can’t erase the gray starter numbers.)</li>
+            <li>📝 <strong>Notes</strong> — Write tiny helper numbers in a box. Tap a number to add or remove it. Turn Notes off to place the big number.</li>
+            <li>💡 <strong>Hint</strong> — Show one helpful move. You get up to 5 hints each puzzle.</li>
+            <li>⏱️ <strong>Timer</strong> — Shows how long you play. You can Pause, Resume, or Stop.</li>
+            <li>🎯 <strong>Highlight</strong> — Tap a filled box or a number button to light up all of that number on the board.</li>
+            <li>🗑️ <strong>Clear Save</strong> — Delete all saved progress and scores. Use this only if you want to start fresh.</li>
+            <li>🗣️ <strong>Coach</strong> — Read messages here for tips, cheers, and warnings about mistakes.</li>
+            <li>❤️ <strong>Hearts</strong> — You have 5 hearts. A wrong number takes one heart. No hearts = Game Over.</li>
+            </ul>
+        </div>
+        </aside>
+    </main>
+
+    <!-- ==========================================================
+        FOOTER
+    ========================================================== -->
+    <footer class="app-footer">
+        <small>Made for learning by GDO ❤❤❤</small>
+    </footer>
+
+    <!-- Game logic (defer = faster first paint on mobile) -->
+    <script src="sudoku.js" defer></script>
+
+    <noscript>This game needs JavaScript to run.</noscript>
+</body>
+</html>

@@ -1,0 +1,518 @@
+/* ==========================================================
+  RESET + BASE THEME
+  - Normalizes layout & defines the color system and shared fonts
+========================================================== */
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  -webkit-tap-highlight-color: transparent; /* remove tap flash on mobile */
+  -webkit-text-size-adjust: 100%;
+}
+
+:root {
+  /* Colors */
+  --bg: #0f172a;        /* page background (dark) */
+  --card: #111827;      /* card panels (toolbar, status, etc.) */
+  --muted: #94a3b8;     /* secondary text */
+  --text: #f1f5f9;      /* main text */
+  --accent: #22c55e;    /* green buttons / success */
+  --accent-2: #60a5fa;  /* blue toggles / selections */
+  --danger: #ef4444;    /* mistakes / destructive */
+  --hint: #ffcc00;      /* hint highlight */
+
+  /* Uniform number size used by BOTH 4×4 and 9×9 boards */
+  --cell-font: clamp(1.05rem, 2.6vw, 1.6rem);
+
+  /* Game font (grid numbers + numpad) */
+  --game-font: "Cambria Math", Cambria, "Times New Roman", serif;
+}
+
+@media (max-width: 600px) {
+  :root { --cell-font: clamp(1rem, 5.5vw, 1.45rem); }
+}
+
+body {
+  background: linear-gradient(180deg, #0b1222, var(--bg));
+  color: var(--text);
+  min-height: 100dvh;
+}
+
+
+/* ==========================================================
+  HEADER
+========================================================== */
+.app-header { text-align: center; padding: 16px; }
+.app-header h1 { margin: 0 0 4px; font-weight: 800; font-size: 1.5rem; }
+.subtitle { margin: 0; color: var(--muted); font-size: 0.9rem; }
+
+
+/* ==========================================================
+  LAYOUT
+  - Desktop: two columns (left = gameplay, right = sidebar)
+  - Mobile (≤768px): single column with your requested order
+========================================================== */
+
+/* Desktop/Laptop grid */
+.app {
+  display: grid;
+  grid-template-columns: 1fr 320px;  /* left column grows, right is a sidebar */
+  gap: 16px;
+  padding: 12px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Visually center the play stack on the left */
+.left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;                 /* centers toolbar, timer, board, numpad */
+}
+.left > .card,
+.left > .timer,
+.left > .numpad { width: 100%; }       /* cards fill column width but stay centered */
+
+.right { /* sidebar column (desktop) */ }
+
+/* ===== Mobile reflow (≤768px) =====
+    Exact order you requested:
+    Challenge → Timer → Status → Toolbar → Board → Numpad → Coach → Tips
+*/
+@media (max-width: 768px) {
+  .app {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .left, .right { display: contents; } /* flatten wrappers */
+
+  /* Order using :has() (modern browsers) */
+  .card:has(#challengeLabel)  { order: 10; } /* 1) Challenge */
+  .timer                      { order: 20; } /* 2) Timer */
+  .status.card                { order: 30; } /* 3) Status (score, PB, hearts) */
+  .toolbar.card               { order: 40; } /* 4) Toolbar */
+  .card:has(#gridTable)       { order: 50; } /* 5) Puzzle board */
+  .numpad.card                { order: 60; } /* 6) Numpad */
+  .coach.card                 { order: 70; } /* 7) Coach */
+  .tips.card                  { order: 80; } /* 8) Tips */
+}
+
+/* Fallback for Android WebViews that don't support :has()
+    👉 Add to your HTML:
+    - Challenge card wrapper: class="challenge-card"
+    - Board card wrapper: class="board-card"
+*/
+@supports not (selector(:has(*))) {
+  @media (max-width: 768px) {
+    .left, .right { display: contents; }
+    .challenge-card { order: 10; }
+    .timer          { order: 20; }
+    .status.card    { order: 30; }
+    .toolbar.card   { order: 40; }
+    .board-card     { order: 50; }
+    .numpad.card    { order: 60; }
+    .coach.card     { order: 70; }
+    .tips.card      { order: 80; }
+  }
+}
+
+
+/* ==========================================================
+  CARDS
+========================================================== */
+.card {
+  background: var(--card);
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+}
+
+
+/* ==========================================================
+  GLOBAL FORM CONTROLS (defaults)
+  (Toolbar has compact overrides below)
+========================================================== */
+select, button {
+  background: #0b1020;
+  color: var(--text);
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+button.primary {
+  background: var(--accent);
+  color: #0b1020;
+  border-color: transparent;
+  font-weight: 700;
+}
+button.primary:hover { filter: brightness(1.1); }
+button.toggly[aria-pressed="true"] {
+  background: var(--accent-2);
+  color: #0b1020;
+  font-weight: 700;
+}
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+button.danger {
+  background: var(--danger);
+  border-color: transparent;
+  color: white;
+}
+button.danger:hover { filter: brightness(1.1); }
+
+/* “Clear Save” looks intentionally smaller and calmer */
+#clearProgress {
+  font-size: .82rem;
+  padding: .35rem .6rem;
+  border-radius: .5rem;
+  line-height: 1.1;
+  opacity: .95;
+  margin-top: 6px;
+}
+
+
+/* ==========================================================
+  TOOLBAR — compact, buttons sized to their text
+  - Desktop: 2 neat rows (CSS Grid)
+  - Phones: wrapping Flex so nothing falls off-screen
+========================================================== */
+
+/* Desktop / large screens: two-row grid */
+.toolbar {
+  display: grid;
+  grid-template-rows: repeat(2, auto);    /* exactly 2 lines */
+  grid-auto-flow: column;                 /* fill across then wrap down */
+  grid-auto-columns: max-content;         /* each item width fits its content */
+  column-gap: 8px;
+  row-gap: 6px;
+  align-items: center;
+  padding: 10px;                          /* tighter than global default */
+}
+
+/* Flatten .row wrappers so children become grid items */
+.toolbar .row { display: contents; margin: 0; }
+
+/* Compact look ONLY inside the toolbar */
+.toolbar label,
+.toolbar select,
+.toolbar button {
+  font-size: .85rem;
+  line-height: 1.1;
+  white-space: nowrap;                    /* keep labels & short buttons on one line */
+}
+
+/* Buttons & selects size to content (no stretched rectangles) */
+.toolbar button,
+.toolbar select {
+  padding: .32rem .55rem;                 /* smaller but comfy */
+  border-radius: .5rem;
+  width: auto;                            /* key: size to content */
+  min-width: 0;                           /* prevent implicit min widths */
+  justify-self: start;                    /* avoid stretching within grid cells */
+}
+
+/* Keep primary/danger visual weight even when compact */
+.toolbar button.primary,
+.toolbar button.danger { font-weight: 700; }
+
+/* Phones: make the toolbar wrap so no buttons fall off-screen */
+@media (max-width: 600px) {
+  .toolbar {
+    display: flex;              /* grid → flex on phones */
+    flex-wrap: wrap;            /* allow multiple lines */
+    justify-content: center;    /* center the items */
+    gap: 8px 6px;               /* row/column gaps */
+    padding: 10px;
+  }
+
+  /* Keep “row flattening” behavior */
+  .toolbar .row { display: contents; }
+
+  /* Compact & consistent controls */
+  .toolbar select,
+  .toolbar button {
+    font-size: .85rem;
+    padding: .34rem .6rem;
+    border-radius: .5rem;
+    line-height: 1.1;
+    flex: 0 0 auto;             /* size to text, not to row width */
+  }
+}
+
+/* Extra-tight toolbar on very small phones */
+@media (max-width: 420px) {
+  .toolbar { column-gap: 6px; row-gap: 4px; }
+  .toolbar select,
+  .toolbar button { font-size: .8rem; padding: .28rem .5rem; }
+}
+
+
+/* ==========================================================
+  SUDOKU BOARD (table)
+  - Equal column math via table-layout: fixed
+  - Square aspect lives on .cell-inner
+========================================================== */
+table.sudoku {
+  width: 100%;
+  max-width: 500px;                 /* default board width (9×9) */
+  margin: 10px auto;
+  border-collapse: collapse;
+  background: #fff;
+  border: 6px solid #000;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+  table-layout: fixed;              /* lock columns to equal widths */
+}
+@media (max-width: 600px) { table.sudoku { max-width: 100%; } }
+
+/* Each grid cell container */
+.sudoku td.cell {
+  position: relative;
+  text-align: center;
+  vertical-align: middle;
+  border: 1px solid #ccc;
+  user-select: none;
+  padding: 0;
+}
+
+/* Square number area */
+.sudoku td.cell .cell-inner {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: var(--cell-font);             /* UNIFORM number size */
+  font-variant-numeric: lining-nums tabular-nums;
+  font-family: var(--game-font);           /* Cambria Math */
+  color: #000;
+  background: #fff;
+}
+
+/* Cell states */
+.sudoku td.prefilled .cell-inner { background: #f0f0f0; }  /* given clues */
+.sudoku td.selected  .cell-inner { background: #d2e4f6; }  /* current cell */
+
+/* Same-number highlight */
+.sudoku td.sameNumber .cell-inner { background: #5da7f6; }
+
+/* ✅ Valid-placement green flash (used by JS class .goodNumber) */
+.sudoku td.goodNumber .cell-inner {
+  background: #d1fadf !important;         /* soft green */
+  outline: 2px solid rgba(34, 197, 94, 0.35);
+}
+
+/* ❌ Mistake styling (red box) — always active */
+.sudoku td.mistakeNumber .cell-inner { background: #f69292; }
+.sudoku td.mistakeNumber {
+  color: red !important;
+  border: 2px solid #ff0000;
+}
+
+/* Heavy borders for sub-boxes */
+.sudoku td.box-right  { border-right: 3px solid #000 !important; }
+.sudoku td.box-bottom { border-bottom: 3px solid #000 !important; }
+
+
+/* ==========================================================
+  NOTES OVERLAY (tiny pencil marks) — smaller + line spacing = 2
+========================================================== */
+.notes {
+  position: absolute; inset: 3px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  font-size: .62rem;               /* smaller */
+  color: #444;
+  font-family: var(--game-font);   /* Cambria Math */
+}
+.notes.small {
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+}
+.note {
+  display: flex; justify-content: center; align-items: center;
+  line-height: 2;                  /* requested line spacing */
+}
+
+
+/* ==========================================================
+  NUMPAD — single row, always visible (no horizontal scroll)
+  - Flex row with 9 equal-width columns (or 4 on 4×4)
+  - Keys shrink/grow to fit the row, so everything stays in view
+========================================================== */
+.numpad { display: flex; justify-content: center; }
+
+/* Container: one row, centered, with gaps; no sideways scroll */
+.numpad .keys {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  flex-wrap: nowrap;          /* stay on one line */
+  gap: 6px;                   /* space between keys */
+  width: 100%;
+  padding: 6px 8px;
+  overflow: hidden;           /* prevent accidental scrollbars */
+}
+
+/* Keys: equal-width columns across the row */
+.numpad .keys > button {
+  flex: 1 1 0;                /* 9 equal columns */
+  min-width: 0;
+  padding: 8px 0;             /* tight enough to fit small phones */
+  font-family: inherit;
+  font-weight: 700;
+  background: #fff; color: #000;
+  border: 2px solid #000; border-radius: 8px;
+  box-shadow: 2px 2px 0 #555;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  transition: transform .06s ease, box-shadow .06s ease, background .12s ease, opacity .12s ease;
+}
+.numpad .keys > button:hover { background: #f5f5f5; }
+
+/* Text inside each key (digits + remaining counters use Cambria Math) */
+.numpad .digit  {
+  font-size: clamp(.98rem, 4.2vw, 1.1rem);
+  line-height: 1.1;
+  color: #1f59d1;
+  font-family: var(--game-font);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.numpad .remain {
+  font-size: clamp(.70rem, 2.2vw, .8rem);
+  line-height: 2;
+  letter-spacing: .01em;
+  color: var(--muted);
+  font-family: var(--game-font);
+}
+
+/* Active/exhausted styles */
+.numpad .keys > button.active    { background: #cfe1ff; border-color: #1f2937; box-shadow: 2px 2px 0 #1f2937; }
+.numpad .keys > button.exhausted { opacity: 0.45; }
+.numpad .keys > button.exhausted .digit,
+.numpad .keys > button.exhausted .remain { color: #6b7280; }
+
+/* Ultra-small phones get a tiny nudge down */
+@media (max-width: 360px) {
+  .numpad .keys { gap: 5px; }
+  .numpad .keys > button { padding: 7px 0; }
+}
+
+
+/* ==========================================================
+  FOOTER / SIDEBAR CARDS
+========================================================== */
+.coach h2, .status h2, .tips h2 { margin: 6px 0 10px; font-size: 1.1rem; }
+.stats { display: grid; gap: 6px; font-size: 1rem; }
+.stats div { display: flex; justify-content: space-between; color: var(--muted); }
+
+.app-footer {
+  text-align: center;
+  padding: 8px 12px 24px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+
+/* ==========================================================
+  GAME OVER / WIN OVERLAY
+========================================================== */
+.game-over {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; padding: 20px;
+}
+.game-over .overlay-box {
+  background: #1e293b; border-radius: 16px; padding: 40px 30px;
+  max-width: 460px; width: 100%; text-align: center;
+  box-shadow: 0 6px 22px rgba(0,0,0,0.55); animation: popIn 0.4s ease;
+}
+@keyframes popIn {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+.game-over h2 { margin: 0 0 24px; font-size: 2.4rem; font-weight: 800; color: var(--accent); }
+.game-over p  { margin: 12px 0; font-size: 1.3rem; color: var(--text); }
+.game-over strong { color: var(--hint); font-size: 1.6rem; }
+.game-over .buttons { margin-top: 32px; display: flex; justify-content: center; gap: 20px; }
+.game-over button {
+  padding: 14px 28px; font-size: 1.1rem; font-weight: 700;
+  border-radius: 10px; cursor: pointer; border: none; min-width: 140px;
+}
+.game-over button#nextChallenge { background: var(--accent); color: #0b1020; }
+.game-over button#quitGame     { background: var(--danger); color: #fff; }
+.game-over button:hover        { filter: brightness(1.1); }
+
+
+/* ==========================================================
+  HINT HIGHLIGHT (pulsing yellow)
+========================================================== */
+.sudoku td.hint-highlight .cell-inner { background: #fff3b0 !important; }
+.sudoku td.hint-highlight {
+  outline: 3px solid var(--hint);
+  animation: pulse 0.8s ease-in-out infinite alternate;
+}
+@keyframes pulse {
+  from { transform: scale(1); }
+  to   { transform: scale(1.05); }
+}
+
+
+/* ==========================================================
+  BOARD SIZE TWEAKS FOR 4×4
+  - Only width; digits stay UNIFORM using --cell-font
+========================================================== */
+table.sudoku[data-n="4"] { max-width: 320px; }
+@media (max-width: 600px) {
+  table.sudoku[data-n="4"] { max-width: 260px; }
+}
+
+
+/* ==========================================================
+  TIMER + BEST TIME
+  - Smaller, centered, visually aligned with Status
+========================================================== */
+.timer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  width: 100%;
+  margin: 8px 0;
+  text-align: center;
+}
+.timer-clock {
+  font-variant-numeric: tabular-nums; /* fixed-width digits (no jitter) */
+  font-weight: 600;
+  font-size: clamp(.9rem, 1.3vw, 1.05rem);
+  line-height: 1;
+  letter-spacing: .01em;
+  color: var(--muted);
+}
+.timer-actions button {
+  font-size: .8rem;
+  padding: .3rem .55rem;
+  border-radius: .5rem;
+}
+.timer-actions button[hidden] { display: none !important; }
+
+/* Best time (Status card) — neutral & subtle */
+#bestTime {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: clamp(.8rem, 1.2vw, .9rem);
+  color: var(--muted);
+  opacity: .95;
+}
+
+/* Tiny phones */
+@media (max-width: 420px) {
+  .timer-clock { font-size: .85rem; }
+  .timer-actions button { font-size: .75rem; padding: .25rem .45rem; }
+}
