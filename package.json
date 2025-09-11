@@ -1,0 +1,17 @@
+{
+  "name": "sudokugame",
+  "version": "1.0.0",
+  "description": "A mobile-friendly Sudoku built with plain HTML/CSS/JS. Stable grid , Notes mode, undo/redo, smart hints, same-number highlight, numpad counting, and a timer.",
+  "main": "sudoku.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/cli": "^7.4.3",
+    "@capacitor/core": "^7.4.3"
+  }
+}

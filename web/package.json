@@ -1,0 +1,43 @@
+{
+  "name": "web",
+  "version": "1.0.0",
+  "description": "A mobile-friendly Sudoku built with plain HTML/CSS/JS. Stable grid , Notes mode, undo/redo, smart hints, same-number highlight, numpad counting, and a timer.",
+  "main": "sudoku.js",
+  
+  "scripts": {
+    "clean": "shx rm -rf dist",
+    "prepare:dist": "shx mkdir -p dist",
+
+    "dev": "run-s clean prepare:dist dev:static && run-p dev:js dev:css",
+    "dev:js": "esbuild sudoku.js --bundle --sourcemap=inline --outfile=dist/sudoku.js --watch",
+    "dev:css": "esbuild style.css --outfile=dist/style.css --watch",
+    "dev:static": "shx cp -f index.html manifest.json icon192.png dist/",
+
+    "build": "run-s clean prepare:dist build:* build:html verify:no-maps publish:docs",
+
+    "build:js": "esbuild sudoku.js --bundle --minify --legal-comments=none --outfile=dist/sudoku.js",
+    "build:css": "esbuild style.css --minify --outfile=dist/style.css",
+
+    "build:static": "shx cp -f manifest.json icon192.png dist/",
+
+    "build:html": "html-minifier-terser index.html -o dist/index.html --collapse-whitespace --remove-comments --remove-redundant-attributes --remove-empty-attributes --remove-optional-tags --remove-script-type-attributes --remove-style-link-type-attributes --keep-closing-slash --minify-js true --minify-css true",
+
+    "verify:no-maps": "node -e \"const fs=require('fs');if(fs.existsSync('dist')){for(const f of fs.readdirSync('dist')){if(f.endsWith('.map')){console.error('❌ Found sourcemap:', f);process.exit(1);}}}console.log('✅ OK: no sourcemaps in dist');\"",
+
+    "predeploy": "npm run build",
+    "deploy:pages": "shx rm -rf docs && shx cp -r dist docs",
+    "deploy": "run-s predeploy deploy:pages",
+    "publish:docs": "shx rm -rf docs && shx mkdir -p docs && shx cp -r dist/* docs/ && shx touch docs/.nojekyll"
+  },
+
+
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "esbuild": "^0.25.9",
+    "html-minifier-terser": "^7.2.0",
+    "npm-run-all": "^4.1.5",
+    "shx": "^0.4.0"
+  }
+}

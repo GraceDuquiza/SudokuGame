@@ -57,6 +57,29 @@ body {
 .subtitle { margin: 0; color: var(--muted); font-size: 0.9rem; }
 
 
+/* Make the table evenly distribute column widths without inline styles */
+.sudoku {
+  width: 100%;
+  table-layout: fixed;        /* equal column widths */
+  border-collapse: collapse;
+  max-width: 500px;           /* default for 9×9 */
+  margin: 0 auto;
+}
+
+/* For 4×4 boards, narrower max width (replaces JS style.maxWidth) */
+.sudoku[data-n="4"] {
+  max-width: 360px;
+}
+
+/* Cells can be styled as you already do; examples: */
+.sudoku td {
+  /* your existing borders/padding/font, etc. */
+}
+
+/* Optional: keep columns equal in all browsers (usually not needed with fixed layout) */
+.sudoku col { width: auto; }
+
+
 /* ==========================================================
   LAYOUT
   - Desktop: two columns (left = gameplay, right = sidebar)

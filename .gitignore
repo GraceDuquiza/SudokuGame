@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+web/node_modules/
+
+# Build outputs
+dist/
+web/dist/
+# keep docs/ for GitHub Pages, but don’t ship sourcemaps
+docs/**/*.map
+
+# Android (Capacitor/Gradle) – ignore build artifacts
+android/.gradle/
+android/.idea/
+android/**/build/
+android/**/.cxx/
+android/**/.transforms/
+android/local.properties
+
+# iOS (if added later)
+ios/
+
+# Editors / OS
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*

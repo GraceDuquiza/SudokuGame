@@ -5,13 +5,25 @@
         <!-- Mobile-friendly layout -->
         <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-        <!-- CSP must appear before any external resources -->
+        <!-- CSP (meta version for GitHub Pages). Keep BEFORE <link>/<script>. -->
         <meta http-equiv="Content-Security-Policy"
-            content="default-src 'self'; script-src 'self'; 
-                    style-src 'self'; img-src 'self' data:; object-src 'none'; 
-                    base-uri 'self'; upgrade-insecure-requests">
+                content="default-src 'self';
+                        script-src 'self';
+                        script-src-elem 'self' 'sha256-vvt4KWwuNr51XfE5m+hzeNEGhiOfZzG97ccfqGsPwvE=';
+                        script-src-attr 'none';
+                        style-src 'self';
+                        img-src 'self' data:;
+                        font-src 'self';
+                        connect-src 'self';
+                        worker-src 'none';
+                        frame-src 'none';
+                        object-src 'none';
+                        base-uri 'none';
+                        form-action 'none';
+                        manifest-src 'self';
+                        upgrade-insecure-requests">
 
-        <!-- Optional privacy hardening -->
+        <!-- Privacy hardening -->
         <meta name="referrer" content="no-referrer">
 
         <title>Sudoku — Learn While You Play</title>
@@ -176,5 +188,5 @@
     <script src="./sudoku.js" defer></script>
 
     <noscript>This game needs JavaScript to run.</noscript>
-</body>
+    </body>
 </html>
