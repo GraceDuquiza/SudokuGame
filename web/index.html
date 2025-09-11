@@ -1,26 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8" />
-    <!-- Mobile-friendly layout -->
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <head>
+        <meta charset="UTF-8" />
+        <!-- Mobile-friendly layout -->
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Sudoku — Learn While You Play</title>
+        <!-- CSP must appear before any external resources -->
+        <meta http-equiv="Content-Security-Policy"
+            content="default-src 'self'; script-src 'self'; 
+                    style-src 'self'; img-src 'self' data:; object-src 'none'; 
+                    base-uri 'self'; upgrade-insecure-requests">
 
-    <!-- Styles -->
-    <link rel="stylesheet" href="./style.css" />
+        <!-- Optional privacy hardening -->
+        <meta name="referrer" content="no-referrer">
 
-    <!-- Icons -->
-    <link rel="icon" href="data:," />
-    <link rel="icon" type="image/png" sizes="192x192" href="./icon192.png" />
-    <link rel="apple-touch-icon" href="./icon192.png" />
+        <title>Sudoku — Learn While You Play</title>
 
-    <!-- PWA -->
-    <link rel="manifest" href="./manifest.json" />
-    <meta name="theme-color" content="#22c55e" />
+        <!-- Styles -->
+        <link rel="stylesheet" href="./style.css" />
 
-    <!-- SEO -->
-    <meta name="description" content="Kid-friendly Sudoku with real table grid. Includes hints, notes, undo/redo, timer, mistakes, and challenge levels.">
+        <!-- Icons -->
+        <link rel="icon" href="data:," />
+        <link rel="icon" type="image/png" sizes="192x192" href="./icon192.png" />
+        <link rel="apple-touch-icon" href="./icon192.png" />
+
+        <!-- PWA -->
+        <link rel="manifest" href="./manifest.json" />
+        <meta name="theme-color" content="#22c55e" />
+
+        <!-- SEO -->
+        <meta name="description" content="Kid-friendly Sudoku with real table grid. Includes hints, notes, undo/redo, timer, mistakes, and challenge levels.">
+    
+
     </head>
 
     <body>
@@ -46,7 +57,7 @@
         <section class="left">
 
         <!-- Challenge label (helper class for non-:has() fallback) -->
-        <div class="card challenge-card" style="text-align:center;">
+        <div class="card challenge-card">
             <h2 id="challengeLabel">🌱 Beginner Challenge — Puzzle 1 of 20</h2>
         </div>
 

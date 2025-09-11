@@ -1,28 +1,33 @@
 'use strict';
 
-/* ==========================================================
-  Sudoku Learn — TABLE VERSION (Vanilla JS)
-  SOLUTION-STRICT + Robust DOM init (grid always renders)
+/* ========================================================================
+   Sudoku Learn — TABLE VERSION (Vanilla JS)
+   - Solution-STRICT: accepts only the correct digit for a cell.
+   - Robust DOM init: grid always renders; guards optional elements.
+   - Undo/redo, hints, notes, timer, mistakes, personal bests.
+   - LocalStorage save/load with input validation (hardening).
+   - Frame-buster to prevent clickjacking when embedded.
+========================================================================= */
 
-  What's fixed / improved:
-  - ✅ Fixed syntax error on btnResume line.
-  - ✅ All DOM queries & event bindings are done AFTER DOMContentLoaded.
-  - ✅ Every optional element is null-guarded (no crash if missing).
-  - ✅ "Solution-STRICT": only correct numbers are accepted.
-  - ✅ Green flash on correct entries; soft red flash on wrong tries.
-  - ✅ Timer / personal bests / localStorage saves retained.
-========================================================== */
+/* ----------------------------------------------------------------------
+   CLICKJACKING PROTECTION
+   If someone tries to load the page inside an <iframe>, break out.
+---------------------------------------------------------------------- */
+if (window.top !== window.self) {
+  try { window.top.location.replace(window.location.href); }
+  catch { window.location.replace(window.location.href); }
+}
 
-/* ------------------------------ Config ----------------------------------------- */
-const MAX_HINTS = 5;
-/** When true, placements must match the unique solution. */
-const STRICT_SOLUTION_CHECK = true;
+/* ------------------------------ Config -------------------------------- */
+const MAX_HINTS = 5;                 // How many hints per puzzle
+const STRICT_SOLUTION_CHECK = true;  // Accept only the unique-solution digit
 
-/* ------------------------------ Tiny query helpers ------------------------------ */
+/* ------------------------------ Tiny query helpers -------------------- */
 const $  = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
-/* ------------------------------ Small utilities -------------------------------- */
+/* ------------------------------ Small utilities ---------------------- */
+/** Format seconds as mm:ss or hh:mm:ss */
 function fmtTime(sec) {
   const s = Math.max(0, Math.floor(sec));
   const hh = Math.floor(s / 3600);
@@ -31,44 +36,66 @@ function fmtTime(sec) {
   const pad2 = (n) => String(n).padStart(2, '0');
   return hh > 0 ? `${pad2(hh)}:${pad2(mm)}:${pad2(ss)}` : `${pad2(mm)}:${pad2(ss)}`;
 }
+/** Return a shuffled copy (Fisher-Yates lite via sort RNG) */
 function shuffled(arr) { return arr.slice().sort(() => Math.random() - 0.5); }
+/** Notes <Set> <-> Array helpers for saving in JSON */
 function serializeNotes(notesObj) { const out = {}; for (const [k, s] of Object.entries(notesObj)) out[k] = [...s]; return out; }
 function deserializeNotes(raw) { const out = {}; for (const [k, a] of Object.entries(raw || {})) out[k] = new Set(a); return out; }
 
-/* -----------------------------------------------------------
-    Minimal CSS injector for flashes (harmless if you already
-    have your own styles; it only adds animations)
------------------------------------------------------------ */
-function injectFlashStylesOnce() {
-  if (document.getElementById('sudoku-autostyles')) return;
-  const css = `
-    #gridTable td.cell.goodNumber .cell-inner { animation: sudoku-goodflash 0.35s ease; }
-    #gridTable td.cell.mistakeNumber .cell-inner { animation: sudoku-badflash 0.35s ease; }
-    @keyframes sudoku-goodflash { from { background: #b8f5b3; } to { background: transparent; } }
-    @keyframes sudoku-badflash { from { background: #ffd8d8; } to { background: transparent; } }
-  `;
-  const style = document.createElement('style');
-  style.id = 'sudoku-autostyles';
-  style.textContent = css;
-  document.head.appendChild(style);
+/* ------------------------------ Sanitizers (hardening) ----------------
+   Everything read from localStorage is coerced/validated so it cannot
+   sneak HTML into template strings. This also prevents corrupted saves.
+-----------------------------------------------------------------------*/
+function toInt(v, def = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : def;
+}
+function clampInt(v, min, max, def = min) {
+  v = toInt(v, def);
+  return (v < min || v > max) ? def : v;
+}
+/** Ensure a grid array has length N*N with values in [0..N] */
+function cleanGridArray(a, N) {
+  const len = N * N;
+  if (!Array.isArray(a) || a.length !== len) return Array(len).fill(0);
+  return a.map(v => clampInt(v, 0, N, 0));
+}
+/** Ensure notes: indices in [0..N*N-1], digits in [1..N] */
+function cleanNotes(raw, N) {
+  const len = N * N;
+  const out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [k, arr] of Object.entries(raw)) {
+    const idx = toInt(k, -1);
+    if (idx < 0 || idx >= len) continue;
+    const s = new Set();
+    if (Array.isArray(arr)) {
+      for (const v of arr) {
+        const vv = clampInt(v, 1, N, 0);
+        if (vv) s.add(vv);
+      }
+    }
+    if (s.size) out[idx] = s;
+  }
+  return out;
 }
 
-/* ------------------------------ Game state ------------------------------------- */
+/* ------------------------------ Game state --------------------------- */
 const state = {
-  difficulty: 'beginner',
+  difficulty: 'beginner', // beginner → 4×4, others → 9×9
   size: 9,
   boxSize: 3,
 
   // Puzzle
   givens: [],     // starting puzzle (0 = blank)
-  grid: [],       // current player entries
-  solution: [],   // full correct solution (strict mode uses this)
+  grid: [],       // current board values (0 = blank)
+  solution: [],   // full correct solution
 
   // UI & modes
-  selected: null,
-  notesMode: false,
-  notes: {},
-  highlightNumber: null,
+  selected: null,         // index of selected cell (0..N*N-1) or null
+  notesMode: false,       // notes toggle
+  notes: {},              // { index -> Set(digits) }
+  highlightNumber: null,  // digit to highlight on the board
 
   // Timer
   startTime: null,
@@ -79,64 +106,47 @@ const state = {
   hintsUsed: 0, hintTarget: null, hintValue: null,
   mistakes: 0, mistakeCells: new Set(), gameOver: false,
 
-  // Undo/redo
+  // Undo/redo stack snapshots
   undoStack: [], redoStack: [],
 
-  // Scores
+  // Scoring
   score: 0, totalScore: 0,
 
-  // Challenge
+  // Challenge progress
   puzzleNumber: 1, totalPuzzles: 20,
 
-  // Visual confirmation
+  // Temporary visual feedback
   goodFlash: new Set(),
 };
 
-/* ------------------------------ DOM elements (late-bound) ---------------------- */
-let difficultySel;
-let gridTable;
-let keysEl;
-let newGameBtn;
-let restartBtn;
-let hintBtn;
-let notesToggle;
-let eraseBtn;
-let undoBtn;
-let redoBtn;
-let hintsUsedEl;
-let mistakesEl;
-let livesEl;
-let coachMsg;
-let clearProgressBtn;
-let scoreEl;
-let challengeLabel;
-let clockEl2;
-let btnPause;
-let btnResume;
-let btnStop;
-let bestTimeEl;
+/* ------------------------------ DOM elements (late-bound) ------------- */
+let difficultySel, gridTable, keysEl, newGameBtn, restartBtn, hintBtn, notesToggle,
+    eraseBtn, undoBtn, redoBtn, hintsUsedEl, mistakesEl, livesEl, coachMsg,
+    clearProgressBtn, scoreEl, challengeLabel, clockEl2, btnPause, btnResume,
+    btnStop, bestTimeEl;
 
-/* ------------------------------ Storage keys ----------------------------------- */
+/* ------------------------------ Storage keys -------------------------- */
 const SAVE_KEY = 'sudoku.learn.table.v2';
 const BEST_KEY = 'sudoku.bestTimes.v1';
 let bestTimes = { beginner: null, intermediate: null, advanced: null, expert: null };
 
-/* ------------------------------ Build guard ------------------------------------ */
+/* ------------------------------ Build guard --------------------------- */
 let isBuilding = false;
 let buildToken = 0;
 
-/* ------------------------------ Save / Load ------------------------------------ */
+/* ------------------------------ Save / Load --------------------------- */
+/** Persist current game into localStorage (best-effort). */
 function save() {
   const data = {
     difficulty: state.difficulty,
     size: state.size,
     givens: state.givens,
     grid: state.grid,
-    solution: state.solution,                 // ✅ persist solution
+    solution: state.solution, // keep the reference solution
     notes: serializeNotes(state.notes),
 
-    elapsed: state.elapsed +
-      (state.startTime ? Math.floor((Date.now() - state.startTime) / 1000) : 0),
+    // Persist elapsed up to this moment (timer may be running)
+    elapsed: state.elapsed + (state.startTime ? Math.floor((Date.now() - state.startTime) / 1000) : 0),
 
     hintsUsed: state.hintsUsed,
     hintTarget: state.hintTarget,
@@ -149,14 +159,17 @@ function save() {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch {}
 }
 
+/** Try solving a puzzle to recover a missing solution (older saves). */
 function trySolveForSolution(puzzle, N, B) {
   const out = solveBacktracking(puzzle, N, B, /*countOnly*/ false);
   return out.solved && out.solution ? out.solution : null;
 }
 
+/** Load save from localStorage (validated); return true if loaded. */
 function load() {
   let raw = localStorage.getItem(SAVE_KEY);
   if (!raw) {
+    // Back-compat with older key
     const oldRaw = localStorage.getItem('sudoku.learn.table.v1');
     if (oldRaw) raw = oldRaw;
   }
@@ -164,29 +177,39 @@ function load() {
 
   try {
     const d = JSON.parse(raw);
-    state.difficulty   = d.difficulty || 'beginner';
+
+    // Difficulty must be one of known values
+    state.difficulty = (d.difficulty === 'beginner' || d.difficulty === 'intermediate' ||
+                        d.difficulty === 'advanced'  || d.difficulty === 'expert')
+                        ? d.difficulty : 'beginner';
+
     setBoardSizeFromDifficulty(state.difficulty);
+    const N = state.size;
 
-    state.givens       = d.givens;
-    state.grid         = d.grid;
-    state.notes        = deserializeNotes(d.notes);
-    state.elapsed      = Number(d.elapsed) || 0;
+    // Arrays must match expected shape, values clamped to ranges
+    state.givens = cleanGridArray(d.givens, N);
+    state.grid   = cleanGridArray(d.grid,   N);
+    state.notes  = cleanNotes(d.notes, N);
 
-    state.hintsUsed    = d.hintsUsed || 0;
-    state.hintTarget   = d.hintTarget ?? null;
-    state.mistakes     = d.mistakes || 0;
-    state.mistakeCells = new Set(d.mistakeCells || []);
-    state.score        = d.score || 0;
-    state.totalScore   = d.totalScore || 0;
-    state.puzzleNumber = d.puzzleNumber || 1;
+    // Numbers are coerced; indices are clamped
+    state.elapsed      = toInt(d.elapsed, 0);
+    state.hintsUsed    = clampInt(d.hintsUsed, 0, MAX_HINTS, 0);
+    state.hintTarget   = (typeof d.hintTarget === 'number') ? clampInt(d.hintTarget, 0, N*N-1, null) : null;
+    state.mistakes     = clampInt(d.mistakes, 0, 999, 0);
+    state.mistakeCells = new Set(Array.isArray(d.mistakeCells)
+                          ? d.mistakeCells.map(x => clampInt(x, 0, N*N-1, -1)).filter(x => x >= 0)
+                          : []);
+    state.score        = toInt(d.score, 0);
+    state.totalScore   = toInt(d.totalScore, 0);
+    state.puzzleNumber = clampInt(d.puzzleNumber, 1, 9999, 1);
 
-    // ✅ Ensure we have a solution (older saves won't)
-    if (Array.isArray(d.solution) && d.solution.length === state.givens.length) {
-      state.solution = d.solution.slice();
+    // Ensure we have a matching-size solution
+    if (Array.isArray(d.solution) && d.solution.length === N * N) {
+      state.solution = cleanGridArray(d.solution, N);
     } else {
-      const sol = trySolveForSolution(state.givens, state.size, state.boxSize);
-      if (sol) state.solution = sol;
-      else return false; // corrupted/unsolvable save
+      const sol = trySolveForSolution(state.givens, N, state.boxSize);
+      if (sol) state.solution = cleanGridArray(sol, N);
+      else return false; // corrupted/unsolvable save → start new
     }
 
     if (difficultySel) difficultySel.value = state.difficulty;
@@ -196,6 +219,7 @@ function load() {
   }
 }
 
+/** Clear persistent save and reset progress counters. */
 function clearSave() {
   try { localStorage.removeItem(SAVE_KEY); } catch {}
   state.score = 0;
@@ -206,31 +230,35 @@ function clearSave() {
   coach('🗑️ Progress cleared. Starting fresh!');
 }
 
-/* ------------------------------ Personal Best ---------------------------------- */
+/* ------------------------------ Personal Bests ------------------------ */
 function loadBestTimes() { try { const raw = localStorage.getItem(BEST_KEY); if (raw) bestTimes = { ...bestTimes, ...JSON.parse(raw) }; } catch {} }
 function saveBestTimes() { try { localStorage.setItem(BEST_KEY, JSON.stringify(bestTimes)); } catch {} }
 function getBestSecondsFor(diff) { const v = bestTimes[diff]; return (typeof v === 'number' && v >= 0) ? v : null; }
-function setPersonalBest(diff, seconds) { const cur = getBestSecondsFor(diff); if (cur == null || seconds < cur) { bestTimes[diff] = seconds; saveBestTimes(); updateBestTimeUI(); return true; } return false; }
+function setPersonalBest(diff, seconds) {
+  const cur = getBestSecondsFor(diff);
+  if (cur == null || seconds < cur) { bestTimes[diff] = seconds; saveBestTimes(); updateBestTimeUI(); return true; }
+  return false;
+}
 function updateBestTimeUI() {
   if (!bestTimeEl) return;
   const v = getBestSecondsFor(state.difficulty);
   bestTimeEl.textContent = v == null ? '—' : fmtTime(v);
 }
 
-/* ------------------------------ Difficulty → board size ------------------------ */
+/* ------------------------------ Difficulty → board size ---------------- */
 function setBoardSizeFromDifficulty(diff) {
   if (diff === 'beginner') { state.size = 4; state.boxSize = 2; }
   else { state.size = 9; state.boxSize = 3; }
 }
 
-/* ------------------------------ Challenge label -------------------------------- */
+/* ------------------------------ Challenge label ----------------------- */
 function updateChallengeLabel() {
   if (!challengeLabel) return;
   const names = { beginner: '🌱 Beginner', intermediate: '⭐ Intermediate', advanced: '🔥 Advanced', expert: '🏆 Expert' };
   challengeLabel.textContent = `${names[state.difficulty] || state.difficulty} — Puzzle ${state.puzzleNumber} of ${state.totalPuzzles}`;
 }
 
-/* ------------------------------ Index helpers ---------------------------------- */
+/* ------------------------------ Index helpers ------------------------- */
 function rcToIndex(r, c, N) { return r * N + c; }
 function rowIndices(i, N) { const r = Math.floor(i / N); return Array.from({ length: N }, (_, c) => rcToIndex(r, c, N)); }
 function colIndices(i, N) { const c = i % N; return Array.from({ length: N }, (_, r) => rcToIndex(r, c, N)); }
@@ -242,7 +270,7 @@ function boxIndices(i, N, B) {
   return out;
 }
 
-/* ------------------------------ Candidates ------------------------------------- */
+/* ------------------------------ Candidates / constraints --------------- */
 function usedInRow(i, g, N)    { return new Set(rowIndices(i, N).map(j => g[j]).filter(Boolean)); }
 function usedInCol(i, g, N)    { return new Set(colIndices(i, N).map(j => g[j]).filter(Boolean)); }
 function usedInBox(i, g, N, B) { return new Set(boxIndices(i, N, B).map(j => g[j]).filter(Boolean)); }
@@ -254,7 +282,8 @@ function candidatesFor(i, g, N, B) {
   return cand;
 }
 
-/* ------------------------------ Generator (MRV solver) ------------------------- */
+/* ------------------------------ Solver / Generator (MRV) --------------- */
+/** Backtracking solver, MRV ordering. When countOnly=true, counts solutions. */
 function solveBacktracking(p, N, B, countOnly = false) {
   const g = p.slice();
   let solutions = 0;
@@ -264,22 +293,22 @@ function solveBacktracking(p, N, B, countOnly = false) {
     for (let i = 0; i < g.length; i++) {
       if (g[i] !== 0) continue;
       const cand = candidatesFor(i, g, N, B);
-      if (cand.length === 0) return i;                // dead end quickly
+      if (cand.length === 0) return i;                // immediate dead end
       if (cand.length < bestLen) { bestLen = cand.length; idx = i; }
-      if (bestLen === 1) break;
+      if (bestLen === 1) break;                       // best possible
     }
     return idx;
   }
 
   function bt() {
     const i = nextEmptyMRV();
-    if (i === -1) { solutions++; return true; }
+    if (i === -1) { solutions++; return true; }       // full grid
     const cand = shuffled(candidatesFor(i, g, N, B));
     for (let k = 0; k < cand.length; k++) {
       g[i] = cand[k];
       if (bt()) {
         if (!countOnly) return true;
-        if (solutions > 1) return true;
+        if (solutions > 1) return true;               // early exit if >1
       }
       g[i] = 0;
     }
@@ -290,6 +319,7 @@ function solveBacktracking(p, N, B, countOnly = false) {
   return { solved, solution: solved ? g.slice() : null, solutionsCount: solutions };
 }
 function hasUniqueSolution(p, N, B) { return solveBacktracking(p, N, B, true).solutionsCount === 1; }
+/** Construct a random full valid solution grid. */
 function generateFullSolution(N, B) {
   const g = Array(N * N).fill(0);
   function fill(i = 0) {
@@ -306,6 +336,7 @@ function generateFullSolution(N, B) {
   fill(0);
   return g;
 }
+/** Remove clues while keeping uniqueness, down to a min-clues threshold. */
 function generatePuzzle(N, B) {
   const minClues = (N === 4) ? 6 : 34;
   const sol = generateFullSolution(N, B);
@@ -325,12 +356,13 @@ function generatePuzzle(N, B) {
   return { puzzle, solution: sol };
 }
 
-/* ------------------------------ Grid building ---------------------------------- */
-let cells = [];
-let cellInners = [];
-let lastVal = [];
+/* ------------------------------ Grid building ------------------------- */
+let cells = [];       // <td> elements (one per cell)
+let cellInners = [];  // <div class="cell-inner"> inside each td
+let lastVal = [];     // cache to avoid re-render
 let lastNotesSig = [];
 
+/** Return HTML for an empty N×N table body with thick box borders. */
 function gridHTML(N, B) {
   let html = '<colgroup>';
   for (let c = 0; c < N; c++) html += `<col style="width:${100 / N}%">`;
@@ -349,9 +381,9 @@ function gridHTML(N, B) {
   return html;
 }
 
+/** Create/refresh the visible table based on current N, B. */
 function buildGridTable() {
-  if (!gridTable) return;
-  if (isBuilding) return;
+  if (!gridTable || isBuilding) return;
   isBuilding = true;
   const token = ++buildToken;
 
@@ -365,6 +397,7 @@ function buildGridTable() {
   lastVal = Array(N * N).fill(undefined);
   lastNotesSig = Array(N * N).fill('');
 
+  // Avoid layout thrash; render on next frame
   requestAnimationFrame(() => {
     if (token !== buildToken) { isBuilding = false; return; }
     ensureNxN();
@@ -373,6 +406,7 @@ function buildGridTable() {
   });
 }
 
+/** Ensure the table truly matches N×N (safety during resizes). */
 function ensureNxN() {
   if (!gridTable) return;
   const N = state.size;
@@ -388,13 +422,15 @@ function ensureNxN() {
   }
 }
 
-/* ------------------------------ Notes ------------------------------------------ */
+/* ------------------------------ Notes UI -------------------------------- */
+/** Toggle a note digit in a cell's Set. */
 function toggleNote(i, n) {
   if (!state.notes[i]) state.notes[i] = new Set();
   const s = state.notes[i];
   if (s.has(n)) s.delete(n); else s.add(n);
   if (s.size === 0) delete state.notes[i];
 }
+/** Build HTML for a 3×3 (or 2×2) mini notes grid. */
 function buildNotesHTML(N, notesSet) {
   const small = (N === 4);
   const slots = small ? 4 : 9;
@@ -404,7 +440,8 @@ function buildNotesHTML(N, notesSet) {
   return html;
 }
 
-/* ------------------------------ Render (fast path) ------------------------------ */
+/* ------------------------------ Rendering -------------------------------- */
+/** Paint a single cell from current state. */
 function paintCell(i) {
   if (!cells[i]) return;
   const td = cells[i];
@@ -423,11 +460,14 @@ function paintCell(i) {
   const same = state.highlightNumber != null && val === state.highlightNumber;
   td.classList.toggle('sameNumber', same);
 
+  // If the value changed, update the text and clear notes render cache
   if (lastVal[i] !== val) {
     lastVal[i] = val;
     lastNotesSig[i] = '';
     inner.textContent = val ? String(val) : '';
   }
+
+  // Render notes overlay only when cell is blank
   if (val === 0) {
     const s = state.notes[i];
     const sig = s ? [...s].sort().join(',') : '';
@@ -438,6 +478,7 @@ function paintCell(i) {
   }
 }
 
+/** Paint the entire board and HUD bits. */
 function renderAll() {
   const total = state.size * state.size;
   for (let i = 0; i < total; i++) paintCell(i);
@@ -452,6 +493,7 @@ function renderAll() {
   updateLives();
 }
 
+/** Update only same-number highlight classes (fast). */
 function repaintHighlightsOnly() {
   if (!cells.length) return;
   const total = state.size * state.size;
@@ -461,14 +503,14 @@ function repaintHighlightsOnly() {
   }
 }
 
-/* ------------------------------ Highlight control ------------------------------ */
+/* ------------------------------ Highlight control ---------------------- */
 function setHighlightNumber(num) {
   state.highlightNumber = (state.highlightNumber === num ? null : num);
   repaintHighlightsOnly();
   updateNumpadActiveStyle();
 }
 
-/* ------------------------------ Numpad counts ---------------------------------- */
+/* ------------------------------ Numpad counters ------------------------ */
 function remainingByDigit() {
   const N = state.size;
   const left = Array(N + 1).fill(N);
@@ -500,7 +542,8 @@ function updateNumpadActiveStyle() {
   });
 }
 
-/* ------------------------------ Input & gameplay ------------------------------- */
+/* ------------------------------ Input & gameplay ----------------------- */
+/** Board click → select cell; clicking a filled cell sets highlight. */
 function onGridClick(e) {
   const td = e.target.closest('td.cell');
   if (!td || !gridTable || !gridTable.contains(td)) return;
@@ -508,11 +551,11 @@ function onGridClick(e) {
   state.selected = +td.dataset.idx;
   if (prev !== null) paintCell(prev);
   paintCell(state.selected);
-
   const v = state.grid[state.selected];
   if (v) setHighlightNumber(v);
 }
 
+/** Push a snapshot for undo (and clear redo). */
 function pushUndo() {
   state.undoStack.push({
     grid: state.grid.slice(),
@@ -523,6 +566,7 @@ function pushUndo() {
   });
   state.redoStack = [];
 }
+/** Undo last action. */
 function undo() {
   if (!state.undoStack.length) return coach('↩️ Nothing to undo!');
   const s = state.undoStack.pop();
@@ -540,6 +584,7 @@ function undo() {
   state.highlightNumber = s.highlightNumber ?? null;
   renderAll(); save(); coach('↩️ Undid your last move.');
 }
+/** Redo previously undone action. */
 function redo() {
   if (!state.redoStack.length) return coach('↪️ Nothing to redo!');
   const s = state.redoStack.pop();
@@ -558,13 +603,14 @@ function redo() {
   renderAll(); save(); coach('↪️ Redid your move.');
 }
 
+/** Briefly mark a cell as “good” (green) for visual feedback. */
 function flashGood(i, ms = 480) {
   state.goodFlash.add(i);
   paintCell(i);
   setTimeout(() => { state.goodFlash.delete(i); paintCell(i); }, ms);
 }
 
-/** Old safety check (no conflicts). Still useful if STRICT is false. */
+/** Old local rule check (only used when STRICT_SOLUTION_CHECK=false). */
 function isPlacementValidLocal(i) {
   const N = state.size, B = state.boxSize, val = state.grid[i];
   if (val === 0) return true;
@@ -575,11 +621,13 @@ function isPlacementValidLocal(i) {
   return onlyOnce(row) && onlyOnce(col) && onlyOnce(box);
 }
 
+/** Main placement: only accept the correct digit (strict mode). */
 function placeNumber(num) {
   if (state.gameOver || state.selected == null) return;
   const i = state.selected;
   if (state.givens[i] !== 0) { setHighlightNumber(num); return; }
 
+  // Notes mode toggles candidates instead of placing a value
   if (state.notesMode) {
     pushUndo();
     toggleNote(i, num);
@@ -588,7 +636,7 @@ function placeNumber(num) {
     return;
   }
 
-  // Count guard (optional UX)
+  // Optional UX: avoid placing a digit that's already exhausted
   const left = remainingByDigit();
   const current = state.grid[i];
   if (left[num] === 0 && current !== num) {
@@ -601,7 +649,7 @@ function placeNumber(num) {
   pushUndo();
 
   if (STRICT_SOLUTION_CHECK) {
-    // ✅ Only accept the correct digit at this position
+    // Reject wrong digit (soft flash red, lose a heart, do not keep value)
     if (num !== state.solution[i]) {
       state.mistakes++;
       state.mistakeCells.add(i);
@@ -615,7 +663,7 @@ function placeNumber(num) {
       return;
     }
 
-    // Correct: accept and score
+    // Correct digit: place it, score, and flash green
     state.grid[i] = num;
     state.mistakeCells.delete(i);
     delete state.notes[i];
@@ -624,7 +672,7 @@ function placeNumber(num) {
     coach('✅ Great! That’s the correct number.');
 
   } else {
-    // Legacy/local validation (kept for completeness)
+    // Legacy/local validation mode
     state.grid[i] = num;
     if (!isPlacementValidLocal(i)) {
       state.mistakes++;
@@ -642,6 +690,7 @@ function placeNumber(num) {
     }
   }
 
+  // HUD updates
   updateNumpadCounts();
   updateNumpadActiveStyle();
   if (hintsUsedEl) hintsUsedEl.textContent = `${state.hintsUsed}/${MAX_HINTS}`;
@@ -653,6 +702,7 @@ function placeNumber(num) {
   checkWin();
 }
 
+/** Clear the selected editable cell (value + notes). */
 function eraseCell() {
   if (state.gameOver || state.selected == null) return;
   const i = state.selected;
@@ -666,7 +716,8 @@ function eraseCell() {
   save(); coach('🧽 Cleared that box.');
 }
 
-/* ------------------------------ Hints ------------------------------------------ */
+/* ------------------------------ Hints ---------------------------------- */
+/** Find a naked single: cell with exactly one candidate. */
 function findNakedSingle(g, N, B) {
   for (let i = 0; i < g.length; i++) {
     if (g[i] === 0) {
@@ -676,17 +727,17 @@ function findNakedSingle(g, N, B) {
   }
   return null;
 }
+/** Provide a hint: prefer naked single, else reveal one correct cell. */
 function hint() {
   if (state.gameOver) return;
   if (state.hintsUsed >= MAX_HINTS) return coach('⚠️ No more hints!');
 
   let move = findNakedSingle(state.grid, state.size, state.boxSize);
   if (!move) {
-    // fallback: reveal a correct cell that’s empty
     const empties = [];
     for (let i = 0; i < state.grid.length; i++) if (state.grid[i] === 0) empties.push(i);
     if (!empties.length) return coach('🤔 No hints needed!');
-    const idx = empties[0]; // deterministic; change to random if you prefer
+    const idx = empties[0]; // deterministic; change to random if preferred
     move = { idx, value: state.solution[idx] };
   }
 
@@ -701,7 +752,8 @@ function hint() {
   save();
 }
 
-/* ------------------------------ Game over & win -------------------------------- */
+/* ------------------------------ Game over & win ------------------------ */
+/** End the game: show overlay with score and restart/quit. */
 function gameOver() {
   stopTimer();
   state.gameOver = true;
@@ -727,8 +779,8 @@ function gameOver() {
   });
 }
 
+/** Check solved: grid must exactly match the solution. */
 function checkWin() {
-  // ✅ strict: solved when grid exactly equals solution
   if (state.grid.length && state.grid.every((v, i) => v !== 0 && v === state.solution[i])) {
     stopTimer();
     state.score += 100;
@@ -769,9 +821,16 @@ function checkWin() {
   }
 }
 
-/* ------------------------------ Timer ------------------------------------------ */
+/* ------------------------------ Timer ---------------------------------- */
 function writeClocks(text) { if (clockEl2) clockEl2.textContent = text; }
-function syncTimerButtons() { if (!btnPause || !btnResume) return; const running = !!state.timerId; btnPause.hidden = !running; btnResume.hidden = running; }
+/** Show/hide Pause/Resume buttons depending on timer state. */
+function syncTimerButtons() {
+  if (!btnPause || !btnResume) return;
+  const running = !!state.timerId;
+  btnPause.hidden = !running;
+  btnResume.hidden = running;
+}
+/** Tick every second when running. */
 function tickClock() {
   const sec = state.elapsed + (state.startTime ? Math.floor((Date.now() - state.startTime) / 1000) : 0);
   writeClocks(fmtTime(sec));
@@ -789,9 +848,10 @@ function stopTimer() {
 }
 function resumeTimer() { if (state.timerId) return; state.startTime = Date.now(); state.timerId = setInterval(tickClock, 1000); tickClock(); syncTimerButtons(); }
 function resetTimer() { stopTimer(); state.elapsed = 0; writeClocks('00:00'); save(); syncTimerButtons(); }
+/** Show a short helpful message (uses textContent for safety). */
 function coach(msg) { if (coachMsg) coachMsg.textContent = msg; }
 
-/* ------------------------------ Lives ------------------------------------------ */
+/* ------------------------------ Lives / hearts ------------------------- */
 function updateLives() {
   if (!livesEl) return;
   const totalLives = 5;
@@ -799,7 +859,8 @@ function updateLives() {
   livesEl.textContent = '❤'.repeat(remaining) + '♡'.repeat(totalLives - remaining);
 }
 
-/* ------------------------------ New / Restart ---------------------------------- */
+/* ------------------------------ New / Restart -------------------------- */
+/** Create a fresh puzzle and start the timer. */
 function newGame() {
   if (isBuilding) return;
   resetTimer();
@@ -817,7 +878,7 @@ function newGame() {
   const { puzzle, solution } = generatePuzzle(state.size, state.boxSize);
   state.givens   = puzzle.slice();
   state.grid     = puzzle.slice();
-  state.solution = solution.slice();      // ✅ keep solution
+  state.solution = solution.slice();  // keep the reference solution
 
   if (newGameBtn) newGameBtn.disabled = true;
 
@@ -830,18 +891,18 @@ function newGame() {
   setTimeout(() => { if (newGameBtn) newGameBtn.disabled = false; }, 300);
 }
 
+/** Restart current puzzle using the same givens/solution. */
 function restartGameSamePuzzle() {
   if (isBuilding) return;
   resetTimer();
   Object.assign(state, {
-    grid: state.givens.slice(),           // keep same givens
+    grid: state.givens.slice(),           // same givens
     mistakes: 0, mistakeCells: new Set(),
     hintsUsed: 0, hintTarget: null, hintValue: null,
     gameOver: false,
     undoStack: [], redoStack: [],
     score: 0, notes: {}, highlightNumber: null, goodFlash: new Set(),
   });
-  // solution stays the same
   buildGridTable();
   buildKeys();
   startTimer();
@@ -849,7 +910,8 @@ function restartGameSamePuzzle() {
   updateBestTimeUI();
 }
 
-/* ------------------------------ Numpad ------------------------------------------ */
+/* ------------------------------ Numpad --------------------------------- */
+/** Build the 1..N number buttons and wire clicks. */
 function buildKeys() {
   if (!keysEl) return;
   keysEl.innerHTML = '';
@@ -873,9 +935,12 @@ function buildKeys() {
   updateNumpadActiveStyle();
 }
 
-/* ------------------------------ Keyboard --------------------------------------- */
+/* ------------------------------ Keyboard --------------------------------
+   - Space: pause/resume
+   - Shift+S: stop/reset
+   - 1..N: place/highlight
+---------------------------------------------------------------------------*/
 document.addEventListener('keydown', (e) => {
-  // These are global and safe pre-init
   if (e.code === 'Space') { e.preventDefault(); state.timerId ? stopTimer() : resumeTimer(); return; }
   if (e.code === 'KeyS' && e.shiftKey) { e.preventDefault(); resetTimer(); return; }
   const n = Number(e.key);
@@ -888,7 +953,8 @@ document.addEventListener('keydown', (e) => {
   repaintHighlightsOnly();
 });
 
-/* ------------------------------ Init / DOM binding ----------------------------- */
+/* ------------------------------ Wiring / Init -------------------------- */
+/** Cache DOM references. */
 function grabDom() {
   difficultySel    = $('#difficulty');
   gridTable        = $('#gridTable');
@@ -909,11 +975,12 @@ function grabDom() {
   challengeLabel   = $('#challengeLabel');
   clockEl2         = $('#clock');
   btnPause         = $('#btn-pause')  || $('#btnPause');
-  btnResume        = $('#btn-resume') || $('#btnResume'); // ✅ fixed bracket
+  btnResume        = $('#btn-resume') || $('#btnResume');
   btnStop          = $('#btn-stop')   || $('#btnStop');
   bestTimeEl       = $('#bestTime');
 }
 
+/** Attach event listeners (null-guarded). */
 function bindEvents() {
   if (gridTable) gridTable.addEventListener('click', onGridClick);
   if (newGameBtn) newGameBtn.addEventListener('click', newGame);
@@ -952,16 +1019,15 @@ function bindEvents() {
   window.addEventListener('beforeunload', save);
 }
 
-/* ------------------------------ Init ------------------------------------------- */
+/** Main entry: load/save, build UI, create a puzzle if none loaded. */
 function init() {
-  injectFlashStylesOnce();     // only adds tiny flash animations
   grabDom();
   loadBestTimes();
   const had = load();
   setBoardSizeFromDifficulty(state.difficulty);
   updateBestTimeUI();
 
-  // Safety: reset weird sizes
+  // Safety: unexpected size → reset to beginner 4×4
   if (![4, 9].includes(state.size)) {
     state.difficulty = 'beginner';
     setBoardSizeFromDifficulty(state.difficulty);
@@ -983,6 +1049,7 @@ function init() {
   }
 }
 
+/* Run once DOM is ready */
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init, { once: true });
 } else {

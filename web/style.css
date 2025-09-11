@@ -12,6 +12,8 @@ html, body {
   -webkit-text-size-adjust: 100%;
 }
 
+.challenge-card { text-align: center; }
+
 :root {
   /* Colors */
   --bg: #0f172a;        /* page background (dark) */
@@ -40,6 +42,12 @@ body {
   min-height: 100dvh;
 }
 
+/* Optional: subtle flash animations (CSP-friendly) */
+@keyframes sudoku-goodflash { from { background: #b8f5b3; } to { background: transparent; } }
+@keyframes sudoku-badflash  { from { background: #ffd8d8; } to { background: transparent; } }
+
+.sudoku td.goodNumber .cell-inner { animation: sudoku-goodflash 0.35s ease; }
+.sudoku td.mistakeNumber .cell-inner { animation: sudoku-badflash 0.35s ease; }
 
 /* ==========================================================
   HEADER
@@ -264,10 +272,13 @@ table.sudoku {
   margin: 10px auto;
   border-collapse: collapse;
   background: #fff;
-  border: 6px solid #000;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+  border: 4px solid #24242e;
+  box-shadow: 0 6px 20px rgba(232, 233, 231, 0.923); /* optional: subtler shadow */
   table-layout: fixed;              /* lock columns to equal widths */
+  border-radius: 12px;           /* increase from 2px so it’s noticeable */             /* clips inner cells to the rounded frame */
 }
+
+
 @media (max-width: 600px) { table.sudoku { max-width: 100%; } }
 
 /* Each grid cell container */
@@ -318,6 +329,8 @@ table.sudoku {
 /* Heavy borders for sub-boxes */
 .sudoku td.box-right  { border-right: 3px solid #000 !important; }
 .sudoku td.box-bottom { border-bottom: 3px solid #000 !important; }
+
+
 
 
 /* ==========================================================
@@ -515,4 +528,13 @@ table.sudoku[data-n="4"] { max-width: 320px; }
 @media (max-width: 420px) {
   .timer-clock { font-size: .85rem; }
   .timer-actions button { font-size: .75rem; padding: .25rem .45rem; }
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  .sudoku td.goodNumber .cell-inner,
+  .sudoku td.mistakeNumber .cell-inner,
+  .sudoku td.hint-highlight {
+    animation: none !important;
+  }
 }
