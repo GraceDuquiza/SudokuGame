@@ -22,6 +22,8 @@ if (window.top !== window.self) {
 
 /** Max number of hints the player can request per puzzle. */
 const MAX_HINTS = 5;
+/** Existing game-over limit, shared by the HUD and lives display. */
+const MAX_MISTAKES = 5;
 /** If true, only the correct solution digit is accepted in a cell. */
 const STRICT_SOLUTION_CHECK = true;
 
@@ -172,7 +174,8 @@ const state = {
 let difficultySel, gridTable, keysEl, newGameBtn, restartBtn, hintBtn, notesToggle,
     eraseBtn, undoBtn, redoBtn, hintsUsedEl, mistakesEl, livesEl, coachMsg,
     clearProgressBtn, scoreEl, challengeLabel, clockEl2, btnPause, btnResume,
-    btnStop, bestTimeEl;
+    btnStop, bestTimeEl, progressEl, totalScoreEl, notesStateEl,
+    levelSelectionEl, gameViewEl, gameMenuEl, settingsToggleBtn;
 
 /* ------------------------------ Storage keys -------------------------- */
 const SAVE_KEY = 'sudoku.learn.table.v2';
@@ -184,11 +187,11 @@ let isBuilding = false;
 let buildToken = 0;
 
 /* ========================= FAST INDEX MAPS & BITMASKS ===================
-   Solver/generator hot path uses bitmasks for speed:
-   - Each row/col/box keeps a 9-bit mask (or 4-bit for 4×4).
-   - 1 means digit is used; 0 means available.
-   - FULL_MASK = (1 << N) - 1
-   - MRV: pick the empty cell with the fewest candidates.
+    Solver/generator hot path uses bitmasks for speed:
+    - Each row/col/box keeps a 9-bit mask (or 4-bit for 4×4).
+    - 1 means digit is used; 0 means available.
+    - FULL_MASK = (1 << N) - 1
+    - MRV: pick the empty cell with the fewest candidates.
 ========================================================================= */
 
 /** Cached per-size maps to avoid recomputing row/col/box lookups. */
@@ -266,10 +269,10 @@ function candidateMask(i, masks, M) {
 }
 
 /* =============================== SOLVER =================================
-   Bitmask backtracking + MRV for speed. Can run in three modes:
-   - Normal solve (return a single solution).
-   - Count-only (stop after >1 solution).
-   - Metric (count "nodes" explored as a rough difficulty signal).
+    Bitmask backtracking + MRV for speed. Can run in three modes:
+    - Normal solve (return a single solution).
+    - Count-only (stop after >1 solution).
+    - Metric (count "nodes" explored as a rough difficulty signal).
 =========================================================================== */
 
 /**
@@ -384,9 +387,9 @@ function hasUniqueSolution(p, N, B) {
 }
 
 /* ============================== GENERATION ==============================
-   - Generate a full valid grid quickly (bitmasks + MRV).
-   - Carve clues while preserving uniqueness and respecting difficulty targets.
-   - Guard with per-difficulty try/time budgets so UI stays responsive.
+    - Generate a full valid grid quickly (bitmasks + MRV).
+    - Carve clues while preserving uniqueness and respecting difficulty targets.
+    - Guard with per-difficulty try/time budgets so UI stays responsive.
 =========================================================================== */
 
 /**
@@ -564,8 +567,8 @@ function boxIndices(i, N, B) {
 }
 
 /* ------------------------------ Candidates / constraints ---------------
-   Note: These simple Set-based helpers are used only for UI-ish tasks
-   (notes & hints). The heavy solver/generator uses the fast bitmask engine.
+    Note: These simple Set-based helpers are used only for UI-ish tasks
+    (notes & hints). The heavy solver/generator uses the fast bitmask engine.
 -------------------------------------------------------------------------*/
 function usedInRow(i, g, N)    { return new Set(rowIndices(i, N).map(j => g[j]).filter(Boolean)); }
 function usedInCol(i, g, N)    { return new Set(colIndices(i, N).map(j => g[j]).filter(Boolean)); }
@@ -707,6 +710,27 @@ function buildNotesHTML(N, notesSet) {
 
 /* ------------------------------ Rendering -------------------------------- */
 
+/** Keep the compact game-status row synchronized with the existing state. */
+function updateStatusUI() {
+  const totalOpen = state.givens.reduce((count, value) => count + (value === 0 ? 1 : 0), 0);
+  const completed = state.grid.reduce((count, value, index) =>
+    count + (state.givens[index] === 0 && value !== 0 ? 1 : 0), 0);
+
+  if (progressEl) progressEl.textContent = `${completed}/${totalOpen}`;
+  if (hintsUsedEl) {
+    const remaining = Math.max(0, MAX_HINTS - state.hintsUsed);
+    hintsUsedEl.textContent = String(remaining);
+    hintsUsedEl.setAttribute('aria-label', `${remaining} hints remaining`);
+  }
+  if (mistakesEl) mistakesEl.textContent = state.mistakes;
+  if (scoreEl) scoreEl.textContent = state.score;
+  if (totalScoreEl) totalScoreEl.textContent = state.totalScore;
+  if (notesToggle) notesToggle.setAttribute('aria-pressed', String(state.notesMode));
+  if (notesStateEl) notesStateEl.textContent = state.notesMode ? 'On' : 'Off';
+  updateChallengeLabel();
+  updateLives();
+}
+
 /**
  * Paint a single cell from current state (value, notes, highlights).
  * Uses small caches to avoid unnecessary DOM writes.
@@ -725,6 +749,17 @@ function paintCell(i) {
   td.classList.toggle('mistakeNumber', state.mistakeCells.has(i));
   td.classList.toggle('hint-highlight', state.hintTarget === i);
   td.classList.toggle('goodNumber', state.goodFlash.has(i));
+
+  const selected = state.selected;
+  let related = false;
+  if (selected != null && selected !== i) {
+    const row = Math.floor(i / N), col = i % N;
+    const selectedRow = Math.floor(selected / N), selectedCol = selected % N;
+    const box = Math.floor(row / state.boxSize) * state.boxSize + Math.floor(col / state.boxSize);
+    const selectedBox = Math.floor(selectedRow / state.boxSize) * state.boxSize + Math.floor(selectedCol / state.boxSize);
+    related = row === selectedRow || col === selectedCol || box === selectedBox;
+  }
+  td.classList.toggle('peer', related);
 
   const same = state.highlightNumber != null && val === state.highlightNumber;
   td.classList.toggle('sameNumber', same);
@@ -757,11 +792,7 @@ function renderAll() {
   updateNumpadCounts();
   updateNumpadActiveStyle();
 
-  if (hintsUsedEl) hintsUsedEl.textContent = `${state.hintsUsed}/${MAX_HINTS}`;
-  if (mistakesEl)  mistakesEl.textContent  = state.mistakes;
-  if (scoreEl)     scoreEl.textContent     = `${state.score} (Total: ${state.totalScore})`;
-  updateChallengeLabel();
-  updateLives();
+  updateStatusUI();
 }
 
 /**
@@ -831,10 +862,8 @@ function updateNumpadActiveStyle() {
 function onGridClick(e) {
   const td = e.target.closest('td.cell');
   if (!td || !gridTable || !gridTable.contains(td)) return;
-  const prev = state.selected;
   state.selected = +td.dataset.idx;
-  if (prev !== null) paintCell(prev);
-  paintCell(state.selected);
+  for (let i = 0; i < cells.length; i++) paintCell(i);
   const v = state.grid[state.selected];
   if (v) setHighlightNumber(v);
 }
@@ -952,10 +981,9 @@ function placeNumber(num) {
       paintCell(i);
       setTimeout(() => { state.mistakeCells.delete(i); paintCell(i); }, 450);
       coach('❌ Not the right number for this box. Try again!');
-      if (mistakesEl) mistakesEl.textContent = state.mistakes;
-      updateLives();
+      updateStatusUI();
       save();
-      if (state.mistakes >= 5) gameOver();
+      if (state.mistakes >= MAX_MISTAKES) gameOver();
       return;
     }
 
@@ -975,7 +1003,7 @@ function placeNumber(num) {
       state.mistakeCells.add(i);
       state.score = Math.max(0, state.score - 5);
       paintCell(i);
-      if (state.mistakes >= 5) return gameOver();
+      if (state.mistakes >= MAX_MISTAKES) return gameOver();
       coach('❌ Oops! That number doesn’t fit.');
     } else {
       state.mistakeCells.delete(i);
@@ -989,10 +1017,7 @@ function placeNumber(num) {
   // HUD updates
   updateNumpadCounts();
   updateNumpadActiveStyle();
-  if (hintsUsedEl) hintsUsedEl.textContent = `${state.hintsUsed}/${MAX_HINTS}`;
-  if (mistakesEl)  mistakesEl.textContent  = state.mistakes;
-  if (scoreEl)     scoreEl.textContent     = `${state.score} (Total: ${state.totalScore})`;
-  updateLives();
+  updateStatusUI();
 
   save();
   checkWin();
@@ -1011,6 +1036,7 @@ function eraseCell() {
   state.mistakeCells.delete(i);
   paintCell(i);
   updateNumpadCounts();
+  updateStatusUI();
   save(); coach('🧽 Cleared that box.');
 }
 
@@ -1102,83 +1128,198 @@ function hint() {
   if (prev != null) paintCell(prev);
   paintCell(move.idx);
   coach(`💡 Hint ${state.hintsUsed}/${MAX_HINTS}: This box should be ${move.value}.`);
-  if (hintsUsedEl) hintsUsedEl.textContent = `${state.hintsUsed}/${MAX_HINTS}`;
+  updateStatusUI();
   save();
 }
 
 /* ------------------------------ Game over & win ------------------------ */
 
-/** Show a game-over overlay and offer restart/quit. */
+/** Show a gentle game-over overlay and offer restart/quit. */
 function gameOver() {
   stopTimer();
   state.gameOver = true;
-  coach('💀 Game Over! Out of hearts.');
+
+  coach('You were close. Try the puzzle again and use what you learned.');
+
   const o = document.createElement('div');
-  o.className = 'game-over';
+  o.className = 'game-over result-overlay loss-overlay';
+
   o.innerHTML = `
-    <div class="overlay-box">
-      <h2>💀 GAME OVER</h2>
-      <p>Your score: <strong>${state.score}</strong></p>
-      <p>Total score: <strong>${state.totalScore}</strong></p>
+    <div class="overlay-box result-card" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+      <div class="result-icon loss-icon" aria-hidden="true">↻</div>
+
+      <p class="result-kicker">Keep going</p>
+
+      <h2 id="resultTitle">Almost there!</h2>
+
+      <p class="result-message">
+        Every attempt helps you spot the patterns faster.
+      </p>
+
+      <div class="result-stats">
+        <div>
+          <span>Score</span>
+          <strong>${state.score}</strong>
+        </div>
+
+        <div>
+          <span>Total score</span>
+          <strong>${state.totalScore}</strong>
+        </div>
+      </div>
+
       <div class="buttons">
-        <button id="restartAfter">🔄 Try Again</button>
-        <button id="quitGame">Quit</button>
+        <button id="restartAfter" class="primary-result-btn">
+          Try Again
+        </button>
+
+        <button id="quitGame" class="secondary-result-btn">
+          Back to Levels
+        </button>
       </div>
     </div>`;
+
   document.body.appendChild(o);
-  $('#restartAfter')?.addEventListener('click', () => { document.body.removeChild(o); state.score = 0; newGame(); });
+
+  $('#restartAfter')?.addEventListener('click', () => {
+    document.body.removeChild(o);
+    state.score = 0;
+    newGame();
+  });
+
   $('#quitGame')?.addEventListener('click', () => {
     document.body.removeChild(o);
-    state.score = 0; state.totalScore = 0; clearSave();
-    coach('👋 Thanks for playing! Start a new game when ready.');
+
+    state.score = 0;
+    state.totalScore = 0;
+
+    clearSave();
+
+    coach('Choose a level whenever you’re ready for another puzzle.');
+
+    // Use your existing function for returning to level selection
+    // if you already have one.
+    $('#backToLevels')?.click();
   });
 }
 
 /**
  * If the current grid matches the stored solution exactly, stop the timer,
- * award points, record PB, and show the win overlay with Next/ Quit.
+ * award points, record PB, and show the win overlay.
  */
 function checkWin() {
-  if (state.grid.length && state.grid.every((v, i) => v !== 0 && v === state.solution[i])) {
+  if (
+    state.grid.length &&
+    state.grid.every((v, i) => v !== 0 && v === state.solution[i])
+  ) {
     stopTimer();
+
     state.score += 100;
     state.totalScore += state.score;
+    updateStatusUI();
 
     const secondsUsed = state.elapsed;
-    if (setPersonalBest(state.difficulty, secondsUsed)) {
+    const isNewBest = setPersonalBest(state.difficulty, secondsUsed);
+
+    if (isNewBest) {
       coach(`🏅 New personal best: ${fmtTime(secondsUsed)}!`);
+    } else {
+      coach('Great work! You completed the puzzle.');
     }
 
     const winOverlay = document.createElement('div');
-    winOverlay.className = 'game-over';
+    winOverlay.className = 'game-over result-overlay win-overlay';
+
     winOverlay.innerHTML = `
-      <div class="overlay-box">
-        <h2>🎉 You solved it!</h2>
-        <p>Score this game: <strong>${state.score}</strong></p>
-        <p>Total Score: <strong>${state.totalScore}</strong></p>
-        <div class="buttons">
-          <button id="nextChallenge">Next Challenge</button>
-          <button id="quitGame">Quit</button>
+      <div
+        class="overlay-box result-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="winTitle"
+      >
+        <div class="result-icon win-icon" aria-hidden="true">
+          ✓
         </div>
-      </div>`;
+
+        <p class="result-kicker">Puzzle Complete</p>
+
+        <h2 id="winTitle">Well done!</h2>
+
+        <p class="result-message">
+          You completed the puzzle${isNewBest ? ' with a new personal best!' : '.'}
+        </p>
+
+        <div class="result-stats">
+          <div>
+            <span>Score</span>
+            <strong>${state.score}</strong>
+          </div>
+
+          <div>
+            <span>Time</span>
+            <strong>${fmtTime(secondsUsed)}</strong>
+          </div>
+        </div>
+
+        ${
+          isNewBest
+            ? `
+              <p class="personal-best">
+                🏅 New personal best
+              </p>
+            `
+            : ''
+        }
+
+        <p class="result-total">
+          Total score <strong>${state.totalScore}</strong>
+        </p>
+
+        <div class="buttons">
+          <button
+            id="nextChallenge"
+            class="primary-result-btn"
+            type="button"
+          >
+            Next Puzzle
+          </button>
+
+          <button
+            id="quitGame"
+            class="secondary-result-btn"
+            type="button"
+          >
+            Quit
+          </button>
+        </div>
+      </div>
+    `;
+
     document.body.appendChild(winOverlay);
 
     $('#nextChallenge')?.addEventListener('click', () => {
       document.body.removeChild(winOverlay);
+
       state.score = 0;
       state.puzzleNumber++;
+
       newGame();
     });
+
     $('#quitGame')?.addEventListener('click', () => {
       document.body.removeChild(winOverlay);
-      state.score = 0; state.totalScore = 0; clearSave();
+
+      state.score = 0;
+      state.totalScore = 0;
+
+      clearSave();
+
       coach('👋 Thanks for playing! Start a new game when ready.');
     });
 
     save();
   }
 }
-
 /* ------------------------------ Timer ---------------------------------- */
 
 /** Write the clock text to the UI safely. */
@@ -1227,7 +1368,7 @@ function coach(msg) { if (coachMsg) coachMsg.textContent = msg; }
 /** Update the ♥♥♥ UI based on the number of mistakes. */
 function updateLives() {
   if (!livesEl) return;
-  const totalLives = 5;
+  const totalLives = MAX_MISTAKES;
   const remaining = Math.max(0, totalLives - state.mistakes);
   livesEl.textContent = '❤'.repeat(remaining) + '♡'.repeat(totalLives - remaining);
 }
@@ -1321,13 +1462,19 @@ function load() {
 
 /** Clear persistent save and reset progress counters. */
 function clearSave() {
-  try { localStorage.removeItem(SAVE_KEY); } catch {}
+  try {
+    localStorage.removeItem(SAVE_KEY);
+    localStorage.removeItem('sudoku.learn.table.v1');
+  } catch {}
+
   state.score = 0;
   state.totalScore = 0;
   state.puzzleNumber = 1;
+
   setBoardSizeFromDifficulty(state.difficulty);
   renderAll();
-  coach('🗑️ Progress cleared. Starting fresh!');
+
+  coach('Saved game deleted. Choose a level when you’re ready to start again.');
 }
 
 /* ------------------------------ Personal Bests ------------------------ */
@@ -1355,11 +1502,74 @@ function setBoardSizeFromDifficulty(diff) {
 
 /* ------------------------------ Challenge label ----------------------- */
 
-/** Update the text that shows current difficulty and puzzle number. */
+/** Update the compact difficulty label and the current-level marker. */
 function updateChallengeLabel() {
-  if (!challengeLabel) return;
-  const names = { beginner: '🌱 Beginner', intermediate: '⭐ Intermediate', advanced: '🔥 Advanced', expert: '🏆 Expert' };
-  challengeLabel.textContent = `${names[state.difficulty] || state.difficulty} — Puzzle ${state.puzzleNumber} of ${state.totalPuzzles}`;
+  const names = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced', expert: 'Expert' };
+  if (challengeLabel) challengeLabel.textContent = names[state.difficulty] || state.difficulty;
+  $$('.level-option').forEach(button => {
+    button.classList.toggle('is-current', button.dataset.difficulty === state.difficulty && state.givens.length > 0);
+  });
+}
+
+/* ------------------------------ App views ----------------------------- */
+
+/** Return true when the in-memory puzzle belongs to the requested level. */
+function hasPuzzleForDifficulty(difficulty) {
+  const size = difficulty === 'beginner' ? 4 : 9;
+  return state.difficulty === difficulty &&
+    state.givens.length === size * size &&
+    state.grid.length === size * size &&
+    state.solution.length === size * size;
+}
+
+/** Close the secondary game menu without affecting game state. */
+function closeGameMenu() {
+  if (gameMenuEl) gameMenuEl.hidden = true;
+  if (settingsToggleBtn) settingsToggleBtn.setAttribute('aria-expanded', 'false');
+}
+
+/** Pause/save the current puzzle and return to level selection. */
+function showLevelSelection(saveCurrent = true) {
+  if (saveCurrent && state.givens.length) {
+    stopTimer();
+    save();
+  }
+  closeGameMenu();
+  if (gameViewEl) gameViewEl.hidden = true;
+  if (levelSelectionEl) levelSelectionEl.hidden = false;
+  updateChallengeLabel();
+  window.scrollTo(0, 0);
+}
+
+/** Reveal the game view without recreating the puzzle. */
+function showGameView() {
+  if (levelSelectionEl) levelSelectionEl.hidden = true;
+  if (gameViewEl) gameViewEl.hidden = false;
+  closeGameMenu();
+  window.scrollTo(0, 0);
+}
+
+/** Resume the selected level when possible; otherwise use the existing new-game path. */
+function chooseLevel(difficulty) {
+  const canResume = hasPuzzleForDifficulty(difficulty) && !state.gameOver;
+  state.difficulty = difficulty;
+  setBoardSizeFromDifficulty(difficulty);
+  if (difficultySel) difficultySel.value = difficulty;
+  updateBestTimeUI();
+  showGameView();
+
+  if (canResume) {
+    buildGridTable();
+    buildKeys();
+    writeClocks(fmtTime(state.elapsed));
+    updateStatusUI();
+    resumeTimer();
+    coach('👋 Welcome back! Your puzzle is ready.');
+    return;
+  }
+
+  state.puzzleNumber = 1;
+  newGame();
 }
 
 /* ------------------------------ New / Restart -------------------------- */
@@ -1434,8 +1644,10 @@ function buildKeys() {
   keysEl.dataset.n = String(N);
   for (let v = 1; v <= N; v++) {
     const b = document.createElement('button');
+    b.type = 'button';
     b.innerHTML = `<div class="digit">${v}</div><div class="remain">0</div>`;
     b.dataset.value = String(v);
+    b.setAttribute('aria-label', `Number ${v}`);
     b.addEventListener('click', () => {
       const i = state.selected;
       const canEdit = i != null && state.givens[i] === 0;
@@ -1456,6 +1668,7 @@ function buildKeys() {
   - 1..N: place/highlight
 ---------------------------------------------------------------------------*/
 document.addEventListener('keydown', (e) => {
+  if (!gameViewEl || gameViewEl.hidden) return;
   if (e.code === 'Space') { e.preventDefault(); state.timerId ? stopTimer() : resumeTimer(); return; }
   if (e.code === 'KeyS' && e.shiftKey) { e.preventDefault(); resetTimer(); return; }
   const n = Number(e.key);
@@ -1494,17 +1707,43 @@ function grabDom() {
   btnResume        = $('#btn-resume') || $('#btnResume');
   btnStop          = $('#btn-stop')   || $('#btnStop');
   bestTimeEl       = $('#bestTime');
+  progressEl       = $('#progressText');
+  totalScoreEl     = $('#totalScore');
+  notesStateEl     = $('#notesState');
+  levelSelectionEl = $('#levelSelection');
+  gameViewEl       = $('#gameView');
+  gameMenuEl       = $('#gameMenu');
+  settingsToggleBtn = $('#settingsToggle');
 }
 
 /** Attach event listeners (null-guarded). */
 function bindEvents() {
+  $$('.level-option').forEach(button => {
+    button.addEventListener('click', () => chooseLevel(button.dataset.difficulty));
+  });
+
+  $('#backToLevels')?.addEventListener('click', () => showLevelSelection());
+  $('#changeLevel')?.addEventListener('click', () => showLevelSelection());
+  settingsToggleBtn?.addEventListener('click', () => {
+    const willOpen = gameMenuEl ? gameMenuEl.hidden : false;
+    if (gameMenuEl) gameMenuEl.hidden = !willOpen;
+    settingsToggleBtn.setAttribute('aria-expanded', String(willOpen));
+  });
+  $('#howToButton')?.addEventListener('click', () => {
+    const howTo = $('#howTo');
+    if (!howTo) return;
+    howTo.open = true;
+    closeGameMenu();
+    howTo.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
   if (gridTable) gridTable.addEventListener('click', onGridClick);
-  if (newGameBtn) newGameBtn.addEventListener('click', newGame);
-  if (restartBtn) restartBtn.addEventListener('click', restartGameSamePuzzle);
+  if (newGameBtn) newGameBtn.addEventListener('click', () => { closeGameMenu(); newGame(); });
+  if (restartBtn) restartBtn.addEventListener('click', () => { closeGameMenu(); restartGameSamePuzzle(); });
   if (hintBtn) hintBtn.addEventListener('click', hint);
   if (eraseBtn) eraseBtn.addEventListener('click', eraseCell);
   if (undoBtn) undoBtn.addEventListener('click', undo);
-  if (redoBtn) redoBtn.addEventListener('click', redo);
+  if (redoBtn) redoBtn.addEventListener('click', () => { closeGameMenu(); redo(); });
 
   if (btnPause)  btnPause.addEventListener('click', stopTimer);
   if (btnResume) btnResume.addEventListener('click', resumeTimer);
@@ -1512,8 +1751,9 @@ function bindEvents() {
 
   if (notesToggle) notesToggle.addEventListener('click', () => {
     state.notesMode = !state.notesMode;
-    notesToggle.textContent = `Notes: ${state.notesMode ? 'On' : 'Off'}`;
     notesToggle.setAttribute('aria-pressed', String(state.notesMode));
+    notesToggle.title = `Notes mode ${state.notesMode ? 'on' : 'off'}`;
+    if (notesStateEl) notesStateEl.textContent = state.notesMode ? 'On' : 'Off';
     coach(state.notesMode
       ? '📝 Notes ON: Tap a box, then tap numbers to make tiny helper notes.'
       : '👆 Notes OFF: Tap a box, then tap a number to place it.'
@@ -1530,16 +1770,23 @@ function bindEvents() {
     });
   }
 
-  if (clearProgressBtn) clearProgressBtn.addEventListener('click', () => { clearSave(); coach('Save cleared'); });
+  if (clearProgressBtn) {
+    clearProgressBtn.addEventListener('click', () => {
+      const confirmed = window.confirm(
+        'Delete your saved game?\n\nYour current puzzle and progress will be removed.'
+      );
+
+      if (!confirmed) return;
+
+      clearSave();
+    });
+  }
 
   document.addEventListener('visibilitychange', () => { if (document.hidden && state.timerId) stopTimer(); });
   window.addEventListener('beforeunload', save);
 }
 
-/**
- * Main entry: load/save, build UI, create a puzzle if none loaded.
- * Ensures a valid board size, then either resumes or starts a new game.
- */
+/** Load saved state, then begin at the level-selection view. */
 function init() {
   grabDom();
   loadBestTimes();
@@ -1558,15 +1805,17 @@ function init() {
   bindEvents();
 
   if (had) {
-    buildGridTable();
-    buildKeys();
     writeClocks(fmtTime(state.elapsed));
     syncTimerButtons();
+    updateStatusUI();
+    coach('👋 Saved puzzle ready. Choose its level to continue.');
   } else {
-    if (difficultySel && difficultySel.value) state.difficulty = difficultySel.value;
-    setBoardSizeFromDifficulty(state.difficulty);
-    newGame();
+    writeClocks('00:00');
+    syncTimerButtons();
+    updateChallengeLabel();
   }
+
+  showLevelSelection(false);
 }
 
 /* Run once DOM is ready */

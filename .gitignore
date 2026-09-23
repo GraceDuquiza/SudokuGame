@@ -28,3 +28,10 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
+
+
+# Generated UI/browser test files
+.edge-flow/
+.edge-review/
+level-selection.png
+ui-flow-test.mjs

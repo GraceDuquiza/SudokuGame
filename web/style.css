@@ -1,563 +1,957 @@
-/* ==========================================================
-  RESET + BASE THEME
-  - Normalizes layout & defines the color system and shared fonts
-========================================================== */
 * { box-sizing: border-box; }
 
-html, body {
-  margin: 0;
-  padding: 0;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  -webkit-tap-highlight-color: transparent; /* remove tap flash on mobile */
-  -webkit-text-size-adjust: 100%;
-}
-
-.challenge-card { text-align: center; }
-
 :root {
-  /* Colors */
-  --bg: #0f172a;        /* page background (dark) */
-  --card: #111827;      /* card panels (toolbar, status, etc.) */
-  --muted: #94a3b8;     /* secondary text */
-  --text: #f1f5f9;      /* main text */
-  --accent: #22c55e;    /* green buttons / success */
-  --accent-2: #60a5fa;  /* blue toggles / selections */
-  --danger: #ef4444;    /* mistakes / destructive */
-  --hint: #ffcc00;      /* hint highlight */
+  --page: #f7f5f0;
+  --surface: #fcfbf8;
 
-  /* Uniform number size used by BOTH 4×4 and 9×9 boards */
-  --cell-font: clamp(1.05rem, 2.6vw, 1.6rem);
+  --text: #263238;
+  --secondary: #6e7475;
 
-  /* Game font (grid numbers + numpad) */
-  --game-font: "Cambria Math", Cambria, "Times New Roman", serif;
+  /* Primary identity — muted Nordic teal */
+  --blue: #28776c;
+  --blue-soft: #e5f0ec;
+  --blue-related: #f0f5f2;
+
+  --grid: #b6bbb8;
+  --grid-strong: #56615f;
+
+  --success: #cfe5d8;
+  --danger: #c75c5c;
+
+  --border: #deddd8;
+
+  --shadow: 0 2px 8px rgba(38, 50, 56, .07);
+
+  --game-font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
-@media (max-width: 600px) {
-  :root { --cell-font: clamp(1rem, 5.5vw, 1.45rem); }
+html {
+  min-width: 320px;
+  color-scheme: light;
+  background: var(--page);
 }
 
 body {
-  background: linear-gradient(180deg, #0b1222, var(--bg));
-  color: var(--text);
   min-height: 100dvh;
+  margin: 0;
+  color: var(--text);
+  background: var(--page);
+  font-family: var(--game-font);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
 }
 
-/* Optional: subtle flash animations (CSP-friendly) */
-@keyframes sudoku-goodflash { from { background: #b8f5b3; } to { background: transparent; } }
-@keyframes sudoku-badflash  { from { background: #ffd8d8; } to { background: transparent; } }
+button,
+select { font: inherit; }
 
-.sudoku td.goodNumber .cell-inner { animation: sudoku-goodflash 0.35s ease; }
-.sudoku td.mistakeNumber .cell-inner { animation: sudoku-badflash 0.35s ease; }
+button { color: inherit; }
+button, summary { -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
 
-/* ==========================================================
-  HEADER
-========================================================== */
-.app-header { text-align: center; padding: 16px; }
-.app-header h1 { margin: 0 0 4px; font-weight: 800; font-size: 1.5rem; }
-.subtitle { margin: 0; color: var(--muted); font-size: 0.9rem; }
+button:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+.sudoku td.cell:focus-visible {
+  outline: 3px solid rgba(40, 119, 108, .3);
+  outline-offset: 2px;
+}
 
+.app-shell {
+  width: min(100%, 560px);
+  margin: 0 auto;
+}
 
-/* Make the table evenly distribute column widths without inline styles */
+.view { width: 100%; }
+
+/* Level selection */
+.level-selection {
+  min-height: calc(100dvh - 44px);
+  padding: clamp(52px, 13vh, 112px) 20px 36px;
+}
+
+.welcome-header { margin-bottom: 34px; }
+
+.brand-kicker {
+  margin: 0 0 7px;
+  color: var(--blue);
+  font-size: .76rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.welcome-header h1 {
+  margin: 0;
+  font-size: clamp(2.15rem, 11vw, 3.25rem);
+  font-weight: 720;
+  letter-spacing: -.055em;
+  line-height: 1;
+}
+
+.welcome-header > p:last-child {
+  margin: 27px 0 0;
+  color: var(--secondary);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.level-list {
+  display: grid;
+  gap: 11px;
+}
+
+.level-option {
+  width: 100%;
+  min-height: 86px;
+  padding: 14px 15px;
+  display: grid;
+  grid-template-columns: 38px 1fr 22px;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  cursor: pointer;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(41, 45, 50, .04);
+  transition: border-color .14s ease, box-shadow .14s ease, transform .14s ease;
+}
+
+.level-option:hover {
+  border-color: #9abeb5;
+  box-shadow: var(--shadow);
+}
+
+.level-option:active { transform: translateY(1px); }
+
+.level-option.is-current {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px var(--blue);
+}
+
+.level-emoji {
+  font-size: 1.45rem;
+  text-align: center;
+}
+
+.level-copy {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  column-gap: 9px;
+  row-gap: 3px;
+}
+
+.level-copy strong { font-size: .98rem; }
+.level-copy > span { color: var(--blue); font-size: .78rem; font-weight: 700; }
+.level-copy small { grid-column: 1 / -1; color: var(--secondary); font-size: .78rem; }
+
+.chevron,
+.icon-button svg,
+.timer-button svg,
+.tool-button svg,
+.check-mark svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chevron { width: 20px; color: #a0a5ab; }
+
+/* Game layout */
+.game-view { padding: 8px 12px 12px; }
+
+.game-nav {
+  min-height: 48px;
+  margin-bottom: 8px;
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+}
+
+.game-nav-title {
+  text-align: center;
+  font-size: .92rem;
+  font-weight: 700;
+}
+
+.icon-button,
+.timer-button {
+  padding: 0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+}
+
+.icon-button { width: 44px; height: 44px; }
+.icon-button:last-child { justify-self: end; }
+.icon-button svg { width: 24px; height: 24px; }
+
+.game-menu {
+  margin: 0 2px 18px;
+  padding: 15px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.menu-heading {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.menu-heading > span,
+.total-score { color: var(--secondary); font-size: .76rem; }
+
+.menu-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.menu-actions button {
+  min-height: 38px;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--text);
+  background: #fbfcfd;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-size: .78rem;
+  font-weight: 600;
+}
+
+.menu-actions button:hover { border-color: #9abeb5; }
+.menu-actions .danger { color: var(--danger); }
+.total-score { margin: 11px 0 0; }
+.total-score strong { color: var(--text); }
+
+/* Status */
+.game-status {
+  min-height: 58px;
+  padding: 0 4px 4px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.status-progress,
+.status-score,
+.status-progress { align-items: flex-start; gap: 3px; }
+.status-score { align-items: center; gap: 4px; text-align: center; }
+.status-time {
+  align-items: center;
+  justify-self: end;
+  gap: 2px;
+  padding-right: 5px;
+  text-align: center;
+}
+
+.progress-line,
+.clock-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.check-mark {
+  width: 21px;
+  height: 21px;
+  display: grid;
+  place-items: center;
+  color: #327848;
+  background: var(--success);
+  border-radius: 50%;
+}
+
+.check-mark svg { width: 15px; height: 15px; stroke-width: 2.4; }
+
+.status-progress strong,
+.status-time #clock { font-size: .9rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+
+.status-progress > span:not(.lives),
+.status-score > span,
+.status-time > span {
+  color: var(--secondary);
+  font-size: .69rem;
+  line-height: 1.2;
+}
+
+.status-time > span {
+  width: 100%;
+  text-align: center;
+}
+.status-progress > span strong { color: var(--secondary); font-size: inherit; }
+
+.status-score > strong {
+  color: var(--blue);
+  font-size: 1.05rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.lives {
+  color: #c74a52;
+  font-size: .6rem;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
+.timer-button { width: 28px; height: 30px; color: var(--text); }
+.timer-button svg { width: 22px; height: 22px; stroke-width: 2; }
+
+/* Board */
+.board-frame { width: 100%; }
+
 .sudoku {
   width: 100%;
-  table-layout: fixed;        /* equal column widths */
-  border-collapse: collapse;
-  max-width: 500px;           /* default for 9×9 */
+  max-width: 536px;
   margin: 0 auto;
+  table-layout: fixed;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 3px solid var(--grid-strong);
 }
 
-/* For 4×4 boards, narrower max width (replaces JS style.maxWidth) */
-.sudoku[data-n="4"] {
-  max-width: 360px;
-}
-
-/* Cells can be styled as you already do; examples: */
-.sudoku td {
-  /* your existing borders/padding/font, etc. */
-}
-
-/* Optional: keep columns equal in all browsers (usually not needed with fixed layout) */
+.sudoku[data-n="4"] { max-width: 430px; }
 .sudoku col { width: auto; }
 
-
-/* ==========================================================
-  LAYOUT
-  - Desktop: two columns (left = gameplay, right = sidebar)
-  - Mobile (≤768px): single column with your requested order
-========================================================== */
-
-/* Desktop/Laptop grid */
-.app {
-  display: grid;
-  grid-template-columns: 1fr 320px;  /* left column grows, right is a sidebar */
-  gap: 16px;
-  padding: 12px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-/* Visually center the play stack on the left */
-.left {
-  display: flex;
-  flex-direction: column;
-  align-items: center;                 /* centers toolbar, timer, board, numpad */
-}
-.left > .card,
-.left > .timer,
-.left > .numpad { width: 100%; }       /* cards fill column width but stay centered */
-
-.right { /* sidebar column (desktop) */ }
-
-/* ===== Mobile reflow (≤768px) =====
-    Exact order you requested:
-    Challenge → Timer → Status → Toolbar → Board → Numpad → Coach → Tips
-*/
-@media (max-width: 768px) {
-  .app {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .left, .right { display: contents; } /* flatten wrappers */
-
-  /* Order using :has() (modern browsers) */
-  .card:has(#challengeLabel)  { order: 10; } /* 1) Challenge */
-  .timer                      { order: 20; } /* 2) Timer */
-  .status.card                { order: 30; } /* 3) Status (score, PB, hearts) */
-  .toolbar.card               { order: 40; } /* 4) Toolbar */
-  .card:has(#gridTable)       { order: 50; } /* 5) Puzzle board */
-  .numpad.card                { order: 60; } /* 6) Numpad */
-  .coach.card                 { order: 70; } /* 7) Coach */
-  .tips.card                  { order: 80; } /* 8) Tips */
-}
-
-/* Fallback for Android WebViews that don't support :has()
-    👉 Add to your HTML:
-    - Challenge card wrapper: class="challenge-card"
-    - Board card wrapper: class="board-card"
-*/
-@supports not (selector(:has(*))) {
-  @media (max-width: 768px) {
-    .left, .right { display: contents; }
-    .challenge-card { order: 10; }
-    .timer          { order: 20; }
-    .status.card    { order: 30; }
-    .toolbar.card   { order: 40; }
-    .board-card     { order: 50; }
-    .numpad.card    { order: 60; }
-    .coach.card     { order: 70; }
-    .tips.card      { order: 80; }
-  }
-}
-
-
-/* ==========================================================
-  CARDS
-========================================================== */
-.card {
-  background: var(--card);
-  border: 1px solid #334155;
-  border-radius: 12px;
-  padding: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
-}
-
-
-/* ==========================================================
-  GLOBAL FORM CONTROLS (defaults)
-  (Toolbar has compact overrides below)
-========================================================== */
-select, button {
-  background: #0b1020;
-  color: var(--text);
-  border: 1px solid #334155;
-  border-radius: 10px;
-  padding: 10px 14px;
-  font-size: 1rem;
-  cursor: pointer;
-}
-button.primary {
-  background: var(--accent);
-  color: #0b1020;
-  border-color: transparent;
-  font-weight: 700;
-}
-button.primary:hover { filter: brightness(1.1); }
-button.toggly[aria-pressed="true"] {
-  background: var(--accent-2);
-  color: #0b1020;
-  font-weight: 700;
-}
-button:disabled { opacity: 0.55; cursor: not-allowed; }
-button.danger {
-  background: var(--danger);
-  border-color: transparent;
-  color: white;
-}
-button.danger:hover { filter: brightness(1.1); }
-
-/* “Clear Save” looks intentionally smaller and calmer */
-#clearProgress {
-  font-size: .82rem;
-  padding: .35rem .6rem;
-  border-radius: .5rem;
-  line-height: 1.1;
-  opacity: .95;
-  margin-top: 6px;
-}
-
-
-/* ==========================================================
-  TOOLBAR — compact, buttons sized to their text
-  - Desktop: 2 neat rows (CSS Grid)
-  - Phones: wrapping Flex so nothing falls off-screen
-========================================================== */
-
-/* Desktop / large screens: two-row grid */
-.toolbar {
-  display: grid;
-  grid-template-rows: repeat(2, auto);    /* exactly 2 lines */
-  grid-auto-flow: column;                 /* fill across then wrap down */
-  grid-auto-columns: max-content;         /* each item width fits its content */
-  column-gap: 8px;
-  row-gap: 6px;
-  align-items: center;
-  padding: 10px;                          /* tighter than global default */
-}
-
-/* Flatten .row wrappers so children become grid items */
-.toolbar .row { display: contents; margin: 0; }
-
-/* Compact look ONLY inside the toolbar */
-.toolbar label,
-.toolbar select,
-.toolbar button {
-  font-size: .85rem;
-  line-height: 1.1;
-  white-space: nowrap;                    /* keep labels & short buttons on one line */
-}
-
-/* Buttons & selects size to content (no stretched rectangles) */
-.toolbar button,
-.toolbar select {
-  padding: .32rem .55rem;                 /* smaller but comfy */
-  border-radius: .5rem;
-  width: auto;                            /* key: size to content */
-  min-width: 0;                           /* prevent implicit min widths */
-  justify-self: start;                    /* avoid stretching within grid cells */
-}
-
-/* Keep primary/danger visual weight even when compact */
-.toolbar button.primary,
-.toolbar button.danger { font-weight: 700; }
-
-/* Phones: make the toolbar wrap so no buttons fall off-screen */
-@media (max-width: 600px) {
-  .toolbar {
-    display: flex;              /* grid → flex on phones */
-    flex-wrap: wrap;            /* allow multiple lines */
-    justify-content: center;    /* center the items */
-    gap: 8px 6px;               /* row/column gaps */
-    padding: 10px;
-  }
-
-  /* Keep “row flattening” behavior */
-  .toolbar .row { display: contents; }
-
-  /* Compact & consistent controls */
-  .toolbar select,
-  .toolbar button {
-    font-size: .85rem;
-    padding: .34rem .6rem;
-    border-radius: .5rem;
-    line-height: 1.1;
-    flex: 0 0 auto;             /* size to text, not to row width */
-  }
-}
-
-/* Extra-tight toolbar on very small phones */
-@media (max-width: 420px) {
-  .toolbar { column-gap: 6px; row-gap: 4px; }
-  .toolbar select,
-  .toolbar button { font-size: .8rem; padding: .28rem .5rem; }
-}
-
-
-/* ==========================================================
-  SUDOKU BOARD (table)
-  - Equal column math via table-layout: fixed
-  - Square aspect lives on .cell-inner
-========================================================== */
-table.sudoku {
-  width: 100%;
-  max-width: 500px;                 /* default board width (9×9) */
-  margin: 10px auto;
-  border-collapse: collapse;
-  background: #fff;
-  border: 4px solid #24242e;
-  box-shadow: 0 6px 20px rgba(232, 233, 231, 0.923); /* optional: subtler shadow */
-  table-layout: fixed;              /* lock columns to equal widths */
-  border-radius: 12px;           /* increase from 2px so it’s noticeable */             /* clips inner cells to the rounded frame */
-}
-
-
-@media (max-width: 600px) { table.sudoku { max-width: 100%; } }
-
-/* Each grid cell container */
 .sudoku td.cell {
   position: relative;
+  padding: 0;
   text-align: center;
   vertical-align: middle;
-  border: 1px solid #ccc;
   user-select: none;
-  padding: 0;
+  border: 1px solid var(--grid);
 }
 
-/* Square number area */
 .sudoku td.cell .cell-inner {
   width: 100%;
   aspect-ratio: 1 / 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 800;
-  font-size: var(--cell-font);             /* UNIFORM number size */
+  color: var(--blue);
+  background: var(--surface);
+  font-family: var(--game-font);
+  font-size: clamp(1.1rem, 6vw, 1.78rem);
+  font-weight: 450;
   font-variant-numeric: lining-nums tabular-nums;
-  font-family: var(--game-font);           /* Cambria Math */
-  color: #000;
-  background: #fff;
 }
 
-/* Cell states */
-.sudoku td.prefilled .cell-inner { background: #f0f0f0; }  /* given clues */
-.sudoku td.selected  .cell-inner { background: #d2e4f6; }  /* current cell */
+.sudoku[data-n="4"] td.cell .cell-inner { font-size: clamp(1.55rem, 10vw, 2.5rem); }
+.sudoku td.prefilled .cell-inner { color: var(--text); font-weight: 520; }
+.sudoku td.peer .cell-inner { background: var(--blue-related); }
+.sudoku td.sameNumber .cell-inner { background: #dcebe6; }
+.sudoku td.selected .cell-inner { background: #c9e2da; }
+.sudoku td.box-right { border-right: 2.5px solid var(--grid-strong) !important; }
+.sudoku td.box-bottom { border-bottom: 2.5px solid var(--grid-strong) !important; }
 
-/* Same-number highlight */
-.sudoku td.sameNumber .cell-inner { background: #5da7f6; }
-
-/* ✅ Valid-placement green flash (used by JS class .goodNumber) */
 .sudoku td.goodNumber .cell-inner {
-  background: #d1fadf !important;         /* soft green */
-  outline: 2px solid rgba(34, 197, 94, 0.35);
+  background: #e0eee5 !important;
+  outline: 2px solid #75a98c;
+  outline-offset: -2px;
 }
 
-/* ❌ Mistake styling (red box) — always active */
-.sudoku td.mistakeNumber .cell-inner { background: #f69292; }
-.sudoku td.mistakeNumber {
-  color: red !important;
-  border: 2px solid #ff0000;
-}
+.sudoku td.mistakeNumber .cell-inner { background: #f5e2df !important; }
+.sudoku td.mistakeNumber { outline: 2px solid var(--danger); outline-offset: -2px; }
+.sudoku td.hint-highlight .cell-inner { background: #fff2bf !important; }
+.sudoku td.hint-highlight { outline: 2px solid #d2a62e; outline-offset: -2px; }
 
-/* Heavy borders for sub-boxes */
-.sudoku td.box-right  { border-right: 3px solid #000 !important; }
-.sudoku td.box-bottom { border-bottom: 3px solid #000 !important; }
-
-
-
-
-/* ==========================================================
-  NOTES OVERLAY (tiny pencil marks) — smaller + line spacing = 2
-========================================================== */
 .notes {
-  position: absolute; inset: 3px;
+  position: absolute;
+  inset: 2px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  font-size: .62rem;               /* smaller */
-  color: #444;
-  font-family: var(--game-font);   /* Cambria Math */
+  color: var(--blue);
+  font-size: clamp(.5rem, 2.4vw, .72rem);
 }
+
 .notes.small {
   grid-template-columns: repeat(2, 1fr);
   grid-template-rows: repeat(2, 1fr);
-}
-.note {
-  display: flex; justify-content: center; align-items: center;
-  line-height: 2;                  /* requested line spacing */
+  font-size: clamp(.75rem, 4vw, 1rem);
 }
 
+.note { display: flex; align-items: center; justify-content: center; }
 
-/* ==========================================================
-  NUMPAD — single row, always visible (no horizontal scroll)
-  - Flex row with 9 equal-width columns (or 4 on 4×4)
-  - Keys shrink/grow to fit the row, so everything stays in view
-========================================================== */
-.numpad { display: flex; justify-content: center; }
-
-/* Container: one row, centered, with gaps; no sideways scroll */
-.numpad .keys {
-  display: flex;
-  justify-content: center;
-  align-items: stretch;
-  flex-wrap: nowrap;          /* stay on one line */
-  gap: 6px;                   /* space between keys */
-  width: 100%;
-  padding: 6px 8px;
-  overflow: hidden;           /* prevent accidental scrollbars */
+/* Primary tools */
+.game-actions {
+  margin: 0 0 6px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-/* Keys: equal-width columns across the row */
-.numpad .keys > button {
-  flex: 1 1 0;                /* 9 equal columns */
+.tool-button {
   min-width: 0;
-  padding: 8px 0;             /* tight enough to fit small phones */
-  font-family: inherit;
+  min-height: 54px;
+  padding: 0 2px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  color: #62676e;
+  background: transparent;
+  border: 0;
+}
+
+.tool-button svg { width: 19px; height: 19px; }
+.tool-button:hover .tool-icon-wrap {
+  color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.tool-button:active .tool-icon-wrap {
+  transform: scale(.96);
+}
+
+.tool-button[aria-pressed="true"] .tool-icon-wrap {
+  color: #ffffff;
+  background: var(--blue);
+}
+
+/* Tool label */
+.tool-button > span:not(.tool-icon-wrap) {
+  font-size: .68rem;
+  font-weight: 600;
+}
+
+/* Notes On/Off text */
+.tool-button small {
+  margin-top: -1px;
+  color: var(--secondary);
+  font-size: .54rem;
+}
+
+/* Hover */
+.tool-button:hover {
+  color: var(--blue);
+}
+
+.tool-button:hover .tool-icon-wrap {
+  color: var(--blue);
+  background: var(--blue-soft);
+}
+
+/* Press feedback */
+.tool-button:active .tool-icon-wrap {
+  transform: scale(.96);
+}
+
+/* Active state — e.g. Notes ON */
+.tool-button[aria-pressed="true"] {
+  color: var(--blue);
+}
+
+.tool-button[aria-pressed="true"] .tool-icon-wrap {
+  color: #ffffff;
+  background: var(--blue);
+}
+
+.tool-button[aria-pressed="true"] small {
+  color: var(--blue);
+}
+
+.tool-icon-wrap {
+  position: relative;
+
+  width: 34px;
+  height: 34px;
+
+  display: grid;
+  place-items: center;
+
+  color: #596360;
+  background: #ebece8;
+
+  border-radius: 50%;
+
+  transition:
+    color .15s ease,
+    background-color .15s ease,
+    transform .15s ease;
+}
+
+.hint-badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--blue);
+  border: 2px solid var(--page);
+  border-radius: 999px;
+  font-size: .58rem;
   font-weight: 700;
-  background: #fff; color: #000;
-  border: 2px solid #000; border-radius: 8px;
-  box-shadow: 2px 2px 0 #555;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  transition: transform .06s ease, box-shadow .06s ease, background .12s ease, opacity .12s ease;
-}
-.numpad .keys > button:hover { background: #f5f5f5; }
-
-/* Text inside each key (digits + remaining counters use Cambria Math) */
-.numpad .digit  {
-  font-size: clamp(.98rem, 4.2vw, 1.1rem);
-  line-height: 1.1;
-  color: #1f59d1;
-  font-family: var(--game-font);
-  font-variant-numeric: lining-nums tabular-nums;
-}
-.numpad .remain {
-  font-size: clamp(.70rem, 2.2vw, .8rem);
-  line-height: 2;
-  letter-spacing: .01em;
-  color: var(--muted);
-  font-family: var(--game-font);
+  line-height: 1;
 }
 
-/* Active/exhausted styles */
-.numpad .keys > button.active    { background: #cfe1ff; border-color: #1f2937; box-shadow: 2px 2px 0 #1f2937; }
-.numpad .keys > button.exhausted { opacity: 0.45; }
-.numpad .keys > button.exhausted .digit,
-.numpad .keys > button.exhausted .remain { color: #6b7280; }
-
-/* Ultra-small phones get a tiny nudge down */
-@media (max-width: 360px) {
-  .numpad .keys { gap: 5px; }
-  .numpad .keys > button { padding: 7px 0; }
+/* Number pad */
+.numpad {
+  width: 100%;
+  margin-top: 10px;
 }
 
+.keys {
+  width: 100%;
 
-/* ==========================================================
-  FOOTER / SIDEBAR CARDS
-========================================================== */
-.coach h2, .status h2, .tips h2 { margin: 6px 0 10px; font-size: 1.1rem; }
-.stats { display: grid; gap: 6px; font-size: 1rem; }
-.stats div { display: flex; justify-content: space-between; color: var(--muted); }
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
 
+  gap: 0;
+
+  overflow: hidden;
+
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.keys > button {
+  min-width: 0;
+  height: 62px;
+  padding: 6px 0 5px;
+
+  flex: 1 1 0;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  gap: 5px;
+
+  cursor: pointer;
+
+  color: var(--blue);
+  background: transparent;
+
+  border: 0;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+
+  box-shadow: none;
+
+  transition:
+    background-color .14s ease,
+    color .14s ease,
+    opacity .14s ease;
+}
+
+.keys > button:last-child {
+  border-right: 0;
+}
+
+.keys > button:hover {
+  background: var(--blue-related);
+}
+
+.keys > button.active {
+  background: var(--blue-soft);
+}
+
+.keys .digit {
+  font-size: clamp(1rem, 5.5vw, 1.35rem);
+  font-weight: 650;
+  line-height: 1;
+}
+
+.keys .remain {
+  color: var(--secondary);
+  font-size: .61rem;
+  font-weight: 550;
+  line-height: 1;
+}
+
+.keys > button.exhausted {
+  opacity: .3;
+}
+
+.keys > button.exhausted .digit {
+  color: var(--secondary);
+}
+
+/* Coach and help */
+.support-section {
+  margin-top: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.support-section > summary,
+.learn-box > summary {
+  position: relative;
+  padding: 14px 42px 14px 15px;
+  cursor: pointer;
+  list-style: none;
+  font-size: .86rem;
+  font-weight: 700;
+}
+
+summary::-webkit-details-marker { display: none; }
+
+.support-section > summary::after,
+.learn-box > summary::after {
+  content: "+";
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  color: var(--secondary);
+  font-size: 1.15rem;
+  font-weight: 400;
+}
+
+.support-section[open] > summary::after,
+.learn-box[open] > summary::after { content: "−"; }
+
+.coach > p {
+  margin: 0;
+  padding: 0 15px 14px;
+  color: var(--secondary);
+  font-size: .8rem;
+  line-height: 1.5;
+}
+
+.learn-box {
+  margin: 0 15px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.learn-box > summary { padding-right: 28px; padding-left: 0; font-size: .78rem; }
+.learn-box > summary::after { right: 2px; }
+
+.support-section ul {
+  margin: 0;
+  padding: 0 25px 15px 34px;
+  color: var(--secondary);
+}
+
+.support-section li { margin-bottom: 8px; font-size: .76rem; line-height: 1.45; }
+.support-section li::marker { color: var(--blue); }
+.support-section strong { color: var(--text); }
+
+/* Footer */
 .app-footer {
+  padding: 8px 16px 14px;
+  color: #9a9ea4;
   text-align: center;
-  padding: 8px 12px 24px;
-  color: var(--muted);
-  font-size: 0.85rem;
+  font-size: .68rem;
 }
 
-
-/* ==========================================================
-  GAME OVER / WIN OVERLAY
-========================================================== */
+/* Existing game-over / win UI */
 .game-over {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.85);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 1000; padding: 20px;
-}
-.game-over .overlay-box {
-  background: #1e293b; border-radius: 16px; padding: 40px 30px;
-  max-width: 460px; width: 100%; text-align: center;
-  box-shadow: 0 6px 22px rgba(0,0,0,0.55); animation: popIn 0.4s ease;
-}
-@keyframes popIn {
-  from { transform: scale(0.85); opacity: 0; }
-  to   { transform: scale(1); opacity: 1; }
-}
-.game-over h2 { margin: 0 0 24px; font-size: 2.4rem; font-weight: 800; color: var(--accent); }
-.game-over p  { margin: 12px 0; font-size: 1.3rem; color: var(--text); }
-.game-over strong { color: var(--hint); font-size: 1.6rem; }
-.game-over .buttons { margin-top: 32px; display: flex; justify-content: center; gap: 20px; }
-.game-over button {
-  padding: 14px 28px; font-size: 1.1rem; font-weight: 700;
-  border-radius: 10px; cursor: pointer; border: none; min-width: 140px;
-}
-.game-over button#nextChallenge { background: var(--accent); color: #0b1020; }
-.game-over button#quitGame     { background: var(--danger); color: #fff; }
-.game-over button:hover        { filter: brightness(1.1); }
-
-
-/* ==========================================================
-  HINT HIGHLIGHT (pulsing yellow)
-========================================================== */
-.sudoku td.hint-highlight .cell-inner { background: #fff3b0 !important; }
-.sudoku td.hint-highlight {
-  outline: 3px solid var(--hint);
-  animation: pulse 0.8s ease-in-out infinite alternate;
-}
-@keyframes pulse {
-  from { transform: scale(1); }
-  to   { transform: scale(1.05); }
-}
-
-
-/* ==========================================================
-  BOARD SIZE TWEAKS FOR 4×4
-  - Only width; digits stay UNIFORM using --cell-font
-========================================================== */
-table.sudoku[data-n="4"] { max-width: 320px; }
-@media (max-width: 600px) {
-  table.sudoku[data-n="4"] { max-width: 260px; }
-}
-
-
-/* ==========================================================
-  TIMER + BEST TIME
-  - Smaller, centered, visually aligned with Status
-========================================================== */
-.timer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  padding: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: .5rem;
-  width: 100%;
-  margin: 8px 0;
+  background: rgba(38, 50, 56, .58);
+  backdrop-filter: blur(3px);
+  
+}
+
+.game-over .overlay-box {
+  width: min(100%, 410px);
+  padding: 30px 24px;
   text-align: center;
-}
-.timer-clock {
-  font-variant-numeric: tabular-nums; /* fixed-width digits (no jitter) */
-  font-weight: 600;
-  font-size: clamp(.9rem, 1.3vw, 1.05rem);
-  line-height: 1;
-  letter-spacing: .01em;
-  color: var(--muted);
-}
-.timer-actions button {
-  font-size: .8rem;
-  padding: .3rem .55rem;
-  border-radius: .5rem;
-}
-.timer-actions button[hidden] { display: none !important; }
-
-/* Best time (Status card) — neutral & subtle */
-#bestTime {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  font-size: clamp(.8rem, 1.2vw, .9rem);
-  color: var(--muted);
-  opacity: .95;
+  background: var(--surface);
+  border-radius: 10px;
+  box-shadow: 0 12px 36px rgba(41, 45, 50, .24);
 }
 
-/* Tiny phones */
-@media (max-width: 420px) {
-  .timer-clock { font-size: .85rem; }
-  .timer-actions button { font-size: .75rem; padding: .25rem .45rem; }
+.game-over h2 { margin: 0 0 18px; font-size: 1.8rem; }
+.game-over p { margin: 9px 0; color: var(--secondary); }
+.game-over strong { color: var(--blue); }
+.game-over .buttons { margin-top: 24px; display: flex; justify-content: center; gap: 10px; }
+
+.game-over button {
+  min-width: 120px;
+  padding: 10px 14px;
+  cursor: pointer;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
 }
 
+.game-over #nextChallenge { color: #fff; background: var(--blue); border-color: var(--blue); }
+.game-over #quitGame { color: var(--danger); }
+
+.game-over .primary-result-btn {
+  color: #fff;
+  background: var(--blue);
+  border: 1px solid var(--blue);
+}
+
+.game-over .primary-result-btn:hover {
+  background: #226a61;
+  border-color: #226a61;
+}
+
+.game-over .secondary-result-btn {
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
+.game-over .secondary-result-btn:hover {
+  color: var(--blue);
+  background: var(--blue-soft);
+}
+.result-card {
+  width: min(100%, 390px);
+  padding: 30px 26px 24px;
+
+  text-align: center;
+
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+
+  box-shadow: 0 18px 50px rgba(38, 50, 56, .18);
+
+  animation: result-enter .28s ease-out;
+}
+
+.result-icon {
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 15px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 50%;
+
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+/* Win */
+.win-icon {
+  color: #ffffff;
+  background: var(--blue);
+}
+
+/* Loss */
+.loss-icon {
+  color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.result-kicker {
+  margin: 0 0 6px;
+
+  color: var(--blue);
+
+  font-size: .7rem;
+  font-weight: 750;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.result-card h2 {
+  margin: 0;
+
+  color: var(--text);
+
+  font-size: 1.65rem;
+  font-weight: 750;
+  letter-spacing: -.025em;
+}
+
+.result-message {
+  max-width: 290px;
+  margin: 10px auto 22px;
+
+  color: var(--secondary);
+
+  font-size: .86rem;
+  line-height: 1.5;
+}
+
+.result-stats {
+  margin: 0 0 18px;
+
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+
+  overflow: hidden;
+}
+
+.result-stats > div {
+  padding: 14px 10px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.result-stats > div + div {
+  border-left: 1px solid var(--border);
+}
+
+.result-stats span {
+  color: var(--secondary);
+  font-size: .68rem;
+}
+
+.result-stats strong {
+  color: var(--text);
+  font-size: 1.15rem;
+  font-weight: 750;
+}
+
+.win-overlay .result-stats strong {
+  color: var(--blue);
+}
+
+.result-total {
+  margin: -5px 0 20px;
+
+  color: var(--secondary);
+
+  font-size: .76rem;
+}
+
+.result-total strong {
+  color: var(--text);
+}
+
+.result-card .buttons {
+  width: 100%;
+  margin-top: 22px;
+
+  display: grid;
+  gap: 9px;
+}
+
+.result-card button {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 16px;
+
+  cursor: pointer;
+
+  border-radius: 9px;
+
+  font-size: .82rem;
+  font-weight: 700;
+}
+
+.primary-result-btn {
+  color: #ffffff;
+  background: var(--blue);
+  border: 1px solid var(--blue);
+}
+
+.primary-result-btn:hover {
+  filter: brightness(.96);
+}
+
+.secondary-result-btn {
+  color: var(--secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
+.secondary-result-btn:hover {
+  color: var(--text);
+  background: var(--page);
+}
+
+@keyframes result-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .sudoku td.goodNumber .cell-inner,
-  .sudoku td.mistakeNumber .cell-inner,
-  .sudoku td.hint-highlight {
-    animation: none !important;
+  .result-card {
+    animation: none;
+  }
+}
+
+.personal-best {
+  width: fit-content;
+  margin: -5px auto 18px;
+  padding: 6px 10px;
+
+  color: var(--blue);
+  background: var(--blue-soft);
+
+  border-radius: 7px;
+
+  font-size: .72rem;
+  font-weight: 700;
+}
+
+
+@media (max-width: 370px) {
+  .game-view {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .game-status {
+    gap: 4px;
+  }
+
+  .status-score > strong {
+    font-size: .95rem;
+  }
+
+  .status-progress strong,
+  .status-time #clock {
+    font-size: .82rem;
+  }
+
+  .keys > button {
+    height: 56px;
+  }
+}
+
+
+@media (min-width: 700px) {
+  .game-view { padding-top: 18px; }
+  .level-selection { padding-right: 30px; padding-left: 30px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
   }
 }
