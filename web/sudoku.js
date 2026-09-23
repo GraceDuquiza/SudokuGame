@@ -178,8 +178,8 @@ let difficultySel, gridTable, keysEl, newGameBtn, restartBtn, hintBtn, notesTogg
     levelSelectionEl, gameViewEl, gameMenuEl, settingsToggleBtn;
 
 /* ------------------------------ Storage keys -------------------------- */
-const SAVE_KEY = 'sudoku.learn.table.v2';
-const BEST_KEY = 'sudoku.bestTimes.v1';
+const SAVE_KEY = 'sudoku.learn.table.v3';
+const BEST_KEY = 'sudoku.bestTimes.v3';
 let bestTimes = { beginner: null, intermediate: null, advanced: null, expert: null };
 
 /* ------------------------------ Build guard --------------------------- */
@@ -1411,7 +1411,7 @@ function load() {
   let raw = localStorage.getItem(SAVE_KEY);
   if (!raw) {
     // Back-compat with older key
-    const oldRaw = localStorage.getItem('sudoku.learn.table.v1');
+    const oldRaw = localStorage.getItem('sudoku.learn.table.v3');
     if (oldRaw) raw = oldRaw;
   }
   if (!raw) return false;
@@ -1464,7 +1464,7 @@ function load() {
 function clearSave() {
   try {
     localStorage.removeItem(SAVE_KEY);
-    localStorage.removeItem('sudoku.learn.table.v1');
+    localStorage.removeItem('sudoku.learn.table.v3');
   } catch {}
 
   state.score = 0;
