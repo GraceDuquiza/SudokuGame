@@ -1,19 +1,1826 @@
-"use strict";(()=>{if(window.top!==window.self)try{window.top.location.replace(window.location.href)}catch{window.location.replace(window.location.href)}var ue=5,xe=5,mt=!0,Qe={beginner:{type:"4x4"},intermediate:{minClues:37,maxClues:44,requireSinglesSolvable:!0,minSearchNodes:80,maxTries:18,maxGenMs:300},advanced:{minClues:28,maxClues:34,requireSinglesSolvable:!1,minSearchNodes:300,maxTries:22,maxGenMs:550},expert:{minClues:19,maxClues:22,requireSinglesSolvable:!1,minSearchNodes:1200,maxTries:36,maxGenMs:1400}},f=e=>document.querySelector(e),Ve=e=>document.querySelectorAll(e),ie=()=>typeof performance<"u"&&performance.now?performance.now():Date.now();function ne(e){let t=Math.max(0,Math.floor(e)),o=Math.floor(t/3600),s=Math.floor(t%3600/60),i=t%60,r=l=>String(l).padStart(2,"0");return o>0?`${r(o)}:${r(s)}:${r(i)}`:`${r(s)}:${r(i)}`}function B(e){return e.slice().sort(()=>Math.random()-.5)}function ge(e){let t={};for(let[o,s]of Object.entries(e))t[o]=[...s];return t}function st(e){let t={};for(let[o,s]of Object.entries(e||{}))t[o]=new Set(s);return t}function W(e,t=0){let o=Number(e);return Number.isFinite(o)?o:t}function E(e,t,o,s=t){return e=W(e,s),e<t||e>o?s:e}function re(e,t){let o=t*t;return!Array.isArray(e)||e.length!==o?Array(o).fill(0):e.map(s=>E(s,0,t,0))}function bt(e,t){let o=t*t,s={};if(!e||typeof e!="object")return s;for(let[i,r]of Object.entries(e)){let l=W(i,-1);if(l<0||l>=o)continue;let a=new Set;if(Array.isArray(r))for(let d of r){let u=E(d,1,t,0);u&&a.add(u)}a.size&&(s[l]=a)}return s}var n={difficulty:"beginner",size:9,boxSize:3,givens:[],grid:[],solution:[],selected:null,notesMode:!1,notes:{},highlightNumber:null,startTime:null,elapsed:0,timerId:null,hintsUsed:0,hintTarget:null,hintValue:null,mistakes:0,mistakeCells:new Set,gameOver:!1,undoStack:[],redoStack:[],score:0,totalScore:0,puzzleNumber:1,totalPuzzles:20,goodFlash:new Set},C,S,w,I,ze,we,F,Te,Ce,Oe,le,Me,Le,Ae,Ee,Ie,Fe,_e,K,N,$e,Ge,Ue,Re,j,Y,G,_,J,Be="sudoku.learn.table.v2",it="sudoku.bestTimes.v1",Q={beginner:null,intermediate:null,advanced:null,expert:null},H=!1,Ze=0,D=null;function de(e,t){if(D&&D.N===e&&D.B===t)return D;let o=new Int16Array(e*e),s=new Int16Array(e*e),i=new Int16Array(e*e),r=Array.from({length:e*e},()=>[]);for(let c=0;c<e;c++)for(let h=0;h<e;h++){let m=c*e+h;o[m]=c,s[m]=h;let v=Math.floor(c/t)*t,x=Math.floor(h/t)*t,L=v+Math.floor(h/t);i[m]=v+Math.floor(h/t)+(Math.floor(c/t)*t-v),i[m]=Math.floor(c/t)*t+Math.floor(h/t)}for(let c=0;c<e*e;c++)r[i[c]].push(c);let l=(1<<e)-1,a=c=>1<<c-1;return D={N:e,B:t,ROW_OF:o,COL_OF:s,BOX_OF:i,CELLS_IN_BOX:r,FULL_MASK:l,bit:a,popcount:c=>(c=c-(c>>>1&1431655765),c=(c&858993459)+(c>>>2&858993459),(c+(c>>>4)&252645135)*16843009>>>24),maskToDigits:c=>{let h=[];for(let m=1;m<=e;m++)c&a(m)&&h.push(m);return h}},D}function vt(e,t){let o=new Int16Array(t.N),s=new Int16Array(t.N),i=new Int16Array(t.N);for(let r=0;r<e.length;r++){let l=e[r];if(!l)continue;let a=t.bit(l);o[t.ROW_OF[r]]|=a,s[t.COL_OF[r]]|=a,i[t.BOX_OF[r]]|=a}return{rows:o,cols:s,boxes:i}}function qe(e,t,o){let s=t.rows[o.ROW_OF[e]]|t.cols[o.COL_OF[e]]|t.boxes[o.BOX_OF[e]];return o.FULL_MASK^s}function Pe(e,t,o,s={}){let{countOnly:i=!1,wantMetrics:r=!1,maxSolutions:l=2}=s,a=de(t,o),d=e.slice(),u=vt(d,a),c=[];for(let g=0;g<d.length;g++)d[g]===0&&c.push(g);let h=0,m=0,v=null;function x(){let g=-1,p=1e9;for(let q=0;q<c.length;q++){let se=c[q];if(d[se]!==0)continue;let Je=qe(se,u,a),ke=a.popcount(Je);if(ke===0)return{i:se,cm:Je,cnt:0};if(ke<p&&(p=ke,g=se),p===1)break}let y=g>=0?qe(g,u,a):0;return{i:g,cm:y,cnt:g>=0?a.popcount(y):0}}function L(g,p){d[g]=p;let y=a.bit(p);u.rows[a.ROW_OF[g]]|=y,u.cols[a.COL_OF[g]]|=y,u.boxes[a.BOX_OF[g]]|=y}function A(g,p){d[g]=0;let y=a.bit(p);u.rows[a.ROW_OF[g]]&=~y,u.cols[a.COL_OF[g]]&=~y,u.boxes[a.BOX_OF[g]]&=~y}function oe(){if(d.every(Boolean))return h++,!i&&!v&&(v=d.slice()),i&&h>=l||!i;let g=x();if(g.i===-1||g.cnt===0)return!1;let p=B(a.maskToDigits(g.cm));for(let y=0;y<p.length;y++){let q=p[y];if(L(g.i,q),m++,oe())return!0;A(g.i,q)}return!1}return oe(),{solved:h>0,solution:v,solutionsCount:h,nodes:r?m:0}}function pt(e,t,o,s=!1){let i=Pe(e,t,o,{countOnly:s,wantMetrics:!1,maxSolutions:2});return{solved:i.solved,solution:i.solution,solutionsCount:i.solutionsCount}}function St(e,t,o){let s=Pe(e,t,o,{countOnly:!1,wantMetrics:!0,maxSolutions:1});return{solved:s.solved,nodes:s.nodes,solutionsCount:s.solutionsCount}}function ce(e,t,o){return Pe(e,t,o,{countOnly:!0,wantMetrics:!1,maxSolutions:2}).solutionsCount===1}function rt(e,t){let o=de(e,t),s=Array(e*e).fill(0),i={rows:new Int16Array(e),cols:new Int16Array(e),boxes:new Int16Array(e)},r=B([...Array(e*e).keys()]);function l(){let c=-1,h=1e9,m=0;for(let v=0;v<r.length;v++){let x=r[v];if(s[x]!==0)continue;let L=qe(x,i,o),A=o.popcount(L);if(A===0)return{i:x,cm:L,cnt:0};if(A<h&&(h=A,c=x,m=L),h===1)break}return{i:c,cm:m,cnt:h}}function a(c,h){s[c]=h;let m=o.bit(h);i.rows[o.ROW_OF[c]]|=m,i.cols[o.COL_OF[c]]|=m,i.boxes[o.BOX_OF[c]]|=m}function d(c,h){s[c]=0;let m=o.bit(h);i.rows[o.ROW_OF[c]]&=~m,i.cols[o.COL_OF[c]]&=~m,i.boxes[o.BOX_OF[c]]&=~m}function u(){let c=l();if(c.i===-1)return!0;if(c.cnt===0)return!1;let h=B(o.maskToDigits(c.cm));for(let m=0;m<h.length;m++){let v=h[m];if(a(c.i,v),u())return!0;d(c.i,v)}return!1}return u(),s}function et(e,t){let o=e===4?6:34,s=rt(e,t),i=B([...Array(e*e).keys()]),r=s.slice(),l=e*e;for(let a=0;a<i.length;a++){let d=i[a];if(r[d]===0)continue;let u=r[d];if(r[d]=0,l--,!ce(r,e,t))r[d]=u,l++;else if(l<=o)break}return{puzzle:r,solution:s}}function yt(e,t,o){if(t===4||e==="beginner")return et(t,o);let s=Qe[e]||Qe.intermediate,i=s.maxTries??20,r=ie()+(s.maxGenMs??500),l=null;for(let a=0;a<i&&!(ie()>r);a++){let d=rt(t,o),u=d.slice(),c=t*t,h=B([...Array(t*t).keys()]);for(let g of h){if(u[g]===0)continue;let p=u[g];if(u[g]=0,c--,ce(u,t,o)||(u[g]=p,c++),c<=s.minClues||ie()>r)break}let m=B([...Array(t*t).keys()]);for(let g of m){if(u[g]===0)continue;let p=u[g];if(u[g]=0,c--,(!ce(u,t,o)||c<s.minClues)&&(u[g]=p,c++),c<=s.maxClues||ie()>r)break}if(c<s.minClues||c>s.maxClues){let g=s.minClues+s.maxClues>>1;(!l||Math.abs(c-g)<Math.abs(l.clues-g))&&(l={puzzle:u.slice(),solution:d.slice(),clues:c,nodes:0});continue}let v=Ft(u,t,o),x=St(u,t,o);if(!ce(u,t,o))continue;let A=s.requireSinglesSolvable?v.solved:!v.solved,oe=(x.nodes||0)>=(s.minSearchNodes||0);if(A&&oe)return{puzzle:u,solution:d};(!l||x.nodes>(l.nodes||-1))&&(l={puzzle:u.slice(),solution:d.slice(),clues:c,nodes:x.nodes})}return l?{puzzle:l.puzzle,solution:l.solution}:et(t,o)}function $(e,t,o){return e*o+t}function lt(e,t){let o=Math.floor(e/t);return Array.from({length:t},(s,i)=>$(o,i,t))}function ct(e,t){let o=e%t;return Array.from({length:t},(s,i)=>$(i,o,t))}function We(e,t,o){let s=Math.floor(e/t),i=e%t,r=Math.floor(s/o)*o,l=Math.floor(i/o)*o,a=[];for(let d=0;d<o;d++)for(let u=0;u<o;u++)a.push($(r+d,l+u,t));return a}function kt(e,t,o){return new Set(lt(e,o).map(s=>t[s]).filter(Boolean))}function xt(e,t,o){return new Set(ct(e,o).map(s=>t[s]).filter(Boolean))}function zt(e,t,o,s){return new Set(We(e,o,s).map(i=>t[i]).filter(Boolean))}function ae(e,t,o,s){if(t[e]!==0)return[];let i=new Set([...kt(e,t,o),...xt(e,t,o),...zt(e,t,o,s)]),r=[];for(let l=1;l<=o;l++)i.has(l)||r.push(l);return r}var T=[],Xe=[],fe=[],X=[];function Ke(){if(!S||H)return;H=!0;let e=++Ze,t=n.size,o=n.boxSize;typeof de=="function"&&de(t,o),S.dataset.n=String(t),S.innerHTML=at(t,o),T=Array.from(S.querySelectorAll("td.cell")),Xe=T.map(s=>s.firstElementChild),fe=Array(t*t).fill(void 0),X=Array(t*t).fill(""),requestAnimationFrame(()=>{if(e!==Ze){H=!1;return}wt(),H=!1,he()})}function at(e,t){let o="<colgroup>";for(let s=0;s<e;s++)o+="<col>";o+="</colgroup><tbody>";for(let s=0;s<e;s++){o+="<tr>";for(let i=0;i<e;i++){let r=$(s,i,e),l=(i+1)%t===0&&i!==e-1?" box-right":"",a=(s+1)%t===0&&s!==e-1?" box-bottom":"";o+=`<td class="cell${l}${a}" data-idx="${r}"><div class="cell-inner"></div></td>`}o+="</tr>"}return o+="</tbody>",o}function wt(){if(!S)return;let e=n.size,t=S.querySelectorAll("tbody tr").length,o=S.querySelectorAll("colgroup col").length;(t!==e||o!==e)&&(S.innerHTML=at(e,n.boxSize),S.dataset.n=String(e),T=Array.from(S.querySelectorAll("td.cell")),Xe=T.map(s=>s.firstElementChild),fe=Array(e*e).fill(void 0),X=Array(e*e).fill(""))}function Tt(e,t){n.notes[e]||(n.notes[e]=new Set);let o=n.notes[e];o.has(t)?o.delete(t):o.add(t),o.size===0&&delete n.notes[e]}function Ct(e,t){let o=e===4,s=o?4:9,i=`<div class="notes ${o?"small":""}">`;for(let r=1;r<=s;r++)i+=`<div class="note">${t.has(r)?r:""}</div>`;return i+="</div>",i}function O(){let e=n.givens.reduce((o,s)=>o+(s===0?1:0),0),t=n.grid.reduce((o,s,i)=>o+(n.givens[i]===0&&s!==0?1:0),0);if(Ue&&(Ue.textContent=`${t}/${e}`),le){let o=Math.max(0,ue-n.hintsUsed);le.textContent=String(o),le.setAttribute("aria-label",`${o} hints remaining`)}Me&&(Me.textContent=n.mistakes),Ie&&(Ie.textContent=n.score),Re&&(Re.textContent=n.totalScore),F&&F.setAttribute("aria-pressed",String(n.notesMode)),j&&(j.textContent=n.notesMode?"On":"Off"),je(),Gt()}function z(e){if(!T[e])return;let t=T[e],o=Xe[e],s=n.size,i=n.grid[e],r=n.givens[e]!==0;t.classList.toggle("prefilled",r),t.classList.toggle("selected",n.selected===e),t.classList.toggle("mistakeNumber",n.mistakeCells.has(e)),t.classList.toggle("hint-highlight",n.hintTarget===e),t.classList.toggle("goodNumber",n.goodFlash.has(e));let l=n.selected,a=!1;if(l!=null&&l!==e){let u=Math.floor(e/s),c=e%s,h=Math.floor(l/s),m=l%s,v=Math.floor(u/n.boxSize)*n.boxSize+Math.floor(c/n.boxSize),x=Math.floor(h/n.boxSize)*n.boxSize+Math.floor(m/n.boxSize);a=u===h||c===m||v===x}t.classList.toggle("peer",a);let d=n.highlightNumber!=null&&i===n.highlightNumber;if(t.classList.toggle("sameNumber",d),fe[e]!==i&&(fe[e]=i,X[e]="",o.textContent=i?String(i):""),i===0){let u=n.notes[e],c=u?[...u].sort().join(","):"";c!==X[e]&&(X[e]=c,o.innerHTML=u&&u.size?Ct(s,u):"")}}function he(){let e=n.size*n.size;for(let t=0;t<e;t++)z(t);ve(),pe(),O()}function me(){if(!T.length)return;let e=n.size*n.size;for(let t=0;t<e;t++){let o=T[t],s=n.grid[t];o.classList.toggle("sameNumber",n.highlightNumber!=null&&s===n.highlightNumber)}}function be(e){n.highlightNumber=n.highlightNumber===e?null:e,me(),pe()}function ut(){let e=n.size,t=Array(e+1).fill(e);for(let o=0;o<n.grid.length;o++){let s=n.grid[o];s&&t[s]--}for(let o=1;o<=e;o++)t[o]<0&&(t[o]=0);return t}function ve(){if(!w)return;let e=n.size,t=ut();w.dataset.n=String(e);for(let o=1;o<=e;o++){let s=w.querySelector(`button[data-value="${o}"]`);if(!s)continue;let i=s.querySelector(".remain");i&&(i.textContent=t[o]),s.classList.toggle("exhausted",t[o]===0)}}function pe(){w&&Ve("#keys button").forEach(e=>{let t=+e.dataset.value;e.classList.toggle("active",t===n.highlightNumber)})}function Ot(e){let t=e.target.closest("td.cell");if(!t||!S||!S.contains(t))return;n.selected=+t.dataset.idx;for(let s=0;s<T.length;s++)z(s);let o=n.grid[n.selected];o&&be(o)}function De(){n.undoStack.push({grid:n.grid.slice(),notes:ge(n.notes),selected:n.selected,score:n.score,highlightNumber:n.highlightNumber}),n.redoStack=[]}function Mt(){if(!n.undoStack.length)return b("\u21A9\uFE0F Nothing to undo!");let e=n.undoStack.pop();n.redoStack.push({grid:n.grid.slice(),notes:ge(n.notes),selected:n.selected,score:n.score,highlightNumber:n.highlightNumber}),n.grid=e.grid,n.notes=st(e.notes),n.selected=e.selected,n.score=e.score,n.highlightNumber=e.highlightNumber??null,he(),k(),b("\u21A9\uFE0F Undid your last move.")}function Lt(){if(!n.redoStack.length)return b("\u21AA\uFE0F Nothing to redo!");let e=n.redoStack.pop();n.undoStack.push({grid:n.grid.slice(),notes:ge(n.notes),selected:n.selected,score:n.score,highlightNumber:n.highlightNumber}),n.grid=e.grid,n.notes=st(e.notes),n.selected=e.selected,n.score=e.score,n.highlightNumber=e.highlightNumber??null,he(),k(),b("\u21AA\uFE0F Redid your move.")}function tt(e,t=480){n.goodFlash.add(e),z(e),setTimeout(()=>{n.goodFlash.delete(e),z(e)},t)}function At(e){let t=n.size,o=n.boxSize,s=n.grid[e];if(s===0)return!0;let i=lt(e,t).map(d=>n.grid[d]),r=ct(e,t).map(d=>n.grid[d]),l=We(e,t,o).map(d=>n.grid[d]),a=d=>d.filter(u=>u===s).length===1;return a(i)&&a(r)&&a(l)}function dt(e){if(n.gameOver||n.selected==null)return;let t=n.selected;if(n.givens[t]!==0){be(e);return}if(n.notesMode){De(),Tt(t,e),n.highlightNumber=e,z(t),k();return}let o=ut(),s=n.grid[t];if(o[e]===0&&s!==e){n.highlightNumber=e,me(),b(`All ${e}\u2019s are already placed.`);return}if(De(),mt){if(e!==n.solution[t]){n.mistakes++,n.mistakeCells.add(t),z(t),setTimeout(()=>{n.mistakeCells.delete(t),z(t)},450),b("\u274C Not the right number for this box. Try again!"),O(),k(),n.mistakes>=xe&&nt();return}n.grid[t]=e,n.mistakeCells.delete(t),delete n.notes[t],n.score+=10,tt(t),b("\u2705 Great! That\u2019s the correct number.")}else if(n.grid[t]=e,At(t))n.mistakeCells.delete(t),n.score+=10,delete n.notes[t],tt(t),b("\u2705 Nice choice!");else{if(n.mistakes++,n.mistakeCells.add(t),n.score=Math.max(0,n.score-5),z(t),n.mistakes>=xe)return nt();b("\u274C Oops! That number doesn\u2019t fit.")}ve(),pe(),O(),k(),$t()}function Et(){if(n.gameOver||n.selected==null)return;let e=n.selected;n.givens[e]===0&&(De(),n.grid[e]=0,delete n.notes[e],n.mistakeCells.delete(e),z(e),ve(),O(),k(),b("\u{1F9FD} Cleared that box."))}function ft(e,t,o){for(let s=0;s<e.length;s++)if(e[s]===0){let i=ae(s,e,t,o);if(i.length===1)return{idx:s,value:i[0]}}return null}function It(e,t,o){for(let s=0;s<t;s++){let i=Array.from({length:t},(l,a)=>$(s,a,t)),r=Array(t+1).fill(null).map(()=>[]);for(let l of i)if(e[l]===0)for(let a of ae(l,e,t,o))r[a].push(l);for(let l=1;l<=t;l++)if(r[l].length===1)return{idx:r[l][0],value:l}}for(let s=0;s<t;s++){let i=Array.from({length:t},(l,a)=>$(a,s,t)),r=Array(t+1).fill(null).map(()=>[]);for(let l of i)if(e[l]===0)for(let a of ae(l,e,t,o))r[a].push(l);for(let l=1;l<=t;l++)if(r[l].length===1)return{idx:r[l][0],value:l}}for(let s=0;s<t;s+=o)for(let i=0;i<t;i+=o){let r=$(s,i,t),l=We(r,t,o),a=Array(t+1).fill(null).map(()=>[]);for(let d of l)if(e[d]===0)for(let u of ae(d,e,t,o))a[u].push(d);for(let d=1;d<=t;d++)if(a[d].length===1)return{idx:a[d][0],value:d}}return null}function Ft(e,t,o){let s=e.slice(),i=0;for(;;){let r=ft(s,t,o);if(r||(r=It(s,t,o)),!r)break;s[r.idx]=r.value,i++}return{solved:s.every(r=>r!==0),steps:i}}function _t(){if(n.gameOver)return;if(n.hintsUsed>=ue)return b("\u26A0\uFE0F No more hints!");let e=ft(n.grid,n.size,n.boxSize);if(!e){let o=[];for(let i=0;i<n.grid.length;i++)n.grid[i]===0&&o.push(i);if(!o.length)return b("\u{1F914} No hints needed!");let s=o[Math.floor(Math.random()*o.length)];e={idx:s,value:n.solution[s]}}let t=n.hintTarget;n.hintsUsed++,n.hintTarget=e.idx,n.hintValue=e.value,t!=null&&z(t),z(e.idx),b(`\u{1F4A1} Hint ${n.hintsUsed}/${ue}: This box should be ${e.value}.`),O(),k()}function nt(){M(),n.gameOver=!0,b("\u{1F480} Game Over! Out of hearts.");let e=document.createElement("div");e.className="game-over",e.innerHTML=`
-    <div class="overlay-box">
-      <h2>\u{1F480} GAME OVER</h2>
-      <p>Your score: <strong>${n.score}</strong></p>
-      <p>Total score: <strong>${n.totalScore}</strong></p>
-      <div class="buttons">
-        <button id="restartAfter">\u{1F504} Try Again</button>
-        <button id="quitGame">Quit</button>
-      </div>
-    </div>`,document.body.appendChild(e),f("#restartAfter")?.addEventListener("click",()=>{document.body.removeChild(e),n.score=0,te()}),f("#quitGame")?.addEventListener("click",()=>{document.body.removeChild(e),n.score=0,n.totalScore=0,ye(),b("\u{1F44B} Thanks for playing! Start a new game when ready.")})}function $t(){if(n.grid.length&&n.grid.every((e,t)=>e!==0&&e===n.solution[t])){M(),n.score+=100,n.totalScore+=n.score,O();let e=n.elapsed;Ht(n.difficulty,e)&&b(`\u{1F3C5} New personal best: ${ne(e)}!`);let t=document.createElement("div");t.className="game-over",t.innerHTML=`
-      <div class="overlay-box">
-        <h2>\u{1F389} You solved it!</h2>
-        <p>Score this game: <strong>${n.score}</strong></p>
-        <p>Total Score: <strong>${n.totalScore}</strong></p>
-        <div class="buttons">
-          <button id="nextChallenge">Next Challenge</button>
-          <button id="quitGame">Quit</button>
+'use strict';
+
+/* ========================================================================
+  Sudoku Learn — TABLE VERSION (Vanilla JS)
+  - Strict check: only accepts the unique-solution digit.
+  - Fast generator/solver (bitmasks + MRV) with time/try budgets per level.
+  - Undo/redo, hints, notes, timer, mistakes, personal bests.
+  - Hardened localStorage I/O, safe DOM updates, frame-buster protection.
+  - Clear docs: every important function has JSDoc above it.
+========================================================================= */
+
+/* ----------------------------------------------------------------------
+  CLICKJACKING PROTECTION
+  If someone tries to load the page inside an <iframe>, break out.
+---------------------------------------------------------------------- */
+if (window.top !== window.self) {
+  try { window.top.location.replace(window.location.href); }
+  catch { window.location.replace(window.location.href); }
+}
+
+/* ------------------------------ Config -------------------------------- */
+
+/** Max number of hints the player can request per puzzle. */
+const MAX_HINTS = 5;
+/** Existing game-over limit, shared by the HUD and lives display. */
+const MAX_MISTAKES = 5;
+/** If true, only the correct solution digit is accepted in a cell. */
+const STRICT_SOLUTION_CHECK = true;
+
+/**
+ * Difficulty tuning (9×9 only).
+ * - min/maxClues: smaller → harder.
+ * - requireSinglesSolvable: true means puzzle should be solvable by singles only.
+ * - minSearchNodes: "hardness" measured by how many nodes the backtracker needed.
+ * - maxTries / maxGenMs: guardrails so generation stays responsive.
+ */
+const DIFF_CONFIG = {
+  beginner:     { type: '4x4' }, // 4×4 stays simple & fast
+
+  // Human-solvable by singles; moderate search so it’s not trivial
+  intermediate: { minClues: 37, maxClues: 44, requireSinglesSolvable: true,
+                  minSearchNodes: 80, maxTries: 18, maxGenMs: 300 },
+
+  // Noticeably harder; allow non-singles; moderate budget
+  advanced:     { minClues: 28, maxClues: 34, requireSinglesSolvable: false,
+                  minSearchNodes: 300, maxTries: 22, maxGenMs: 550 },
+
+  // Ultra-hard expert (desktop-ish budget). For faster mobile expert, tighten maxGenMs.
+  expert:       { minClues: 19, maxClues: 22, requireSinglesSolvable: false,
+                  minSearchNodes: 1200, maxTries: 36, maxGenMs: 1400 },
+};
+
+/* ------------------------------ Tiny query helpers -------------------- */
+const $  = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+/* ------------------------------ Small utilities ---------------------- */
+
+/**
+ * Return high-resolution time safely (perf.now on modern browsers; Date.now fallback).
+ */
+const nowMs = () => (typeof performance !== 'undefined' && performance.now)
+  ? performance.now()
+  : Date.now();
+
+/**
+ * Format seconds as mm:ss or hh:mm:ss.
+ */
+function fmtTime(sec) {
+  const s = Math.max(0, Math.floor(sec));
+  const hh = Math.floor(s / 3600);
+  const mm = Math.floor((s % 3600) / 60);
+  const ss = s % 60;
+  const pad2 = (n) => String(n).padStart(2, '0');
+  return hh > 0 ? `${pad2(hh)}:${pad2(mm)}:${pad2(ss)}` : `${pad2(mm)}:${pad2(ss)}`;
+}
+
+/**
+ * Return a shallow shuffled copy (uses stable Math.random() sort trick).
+ * Fast enough for our small arrays (<= 81).
+ */
+function shuffled(arr) {
+  return arr.slice().sort(() => Math.random() - 0.5);
+}
+
+/** Notes <Set> <-> Array helpers for saving to JSON safely. */
+function serializeNotes(notesObj) { const out = {}; for (const [k, s] of Object.entries(notesObj)) out[k] = [...s]; return out; }
+function deserializeNotes(raw) { const out = {}; for (const [k, a] of Object.entries(raw || {})) out[k] = new Set(a); return out; }
+
+/* ------------------------------ Sanitizers (hardening) ----------------
+   Everything read from localStorage is validated/coerced to prevent
+   corrupted saves or unintended HTML in template strings.
+-----------------------------------------------------------------------*/
+
+/** Coerce to integer or fallback. */
+function toInt(v, def = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : def;
+}
+
+/** Clamp integer to [min, max], or fallback to def. */
+function clampInt(v, min, max, def = min) {
+  v = toInt(v, def);
+  return (v < min || v > max) ? def : v;
+}
+
+/** Ensure a grid array has length N*N with values in [0..N]. */
+function cleanGridArray(a, N) {
+  const len = N * N;
+  if (!Array.isArray(a) || a.length !== len) return Array(len).fill(0);
+  return a.map(v => clampInt(v, 0, N, 0));
+}
+
+/** Ensure notes: indices in [0..N*N-1], digits in [1..N]. */
+function cleanNotes(raw, N) {
+  const len = N * N;
+  const out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [k, arr] of Object.entries(raw)) {
+    const idx = toInt(k, -1);
+    if (idx < 0 || idx >= len) continue;
+    const s = new Set();
+    if (Array.isArray(arr)) {
+      for (const v of arr) {
+        const vv = clampInt(v, 1, N, 0);
+        if (vv) s.add(vv);
+      }
+    }
+    if (s.size) out[idx] = s;
+  }
+  return out;
+}
+
+/* ------------------------------ Game state --------------------------- */
+const state = {
+  difficulty: 'beginner', // beginner → 4×4, others → 9×9
+  size: 9,
+  boxSize: 3,
+
+  // Puzzle
+  givens: [],     // starting puzzle (0 = blank)
+  grid: [],       // current board values (0 = blank)
+  solution: [],   // full correct solution
+
+  // UI & modes
+  selected: null,         // index of selected cell (0..N*N-1) or null
+  notesMode: false,       // notes toggle
+  notes: {},              // { index -> Set(digits) }
+  highlightNumber: null,  // digit to highlight on the board
+
+  // Timer
+  startTime: null,
+  elapsed: 0,
+  timerId: null,
+
+  // Hints & mistakes
+  hintsUsed: 0, hintTarget: null, hintValue: null,
+  mistakes: 0, mistakeCells: new Set(), gameOver: false,
+
+  // Undo/redo stack snapshots
+  undoStack: [], redoStack: [],
+
+  // Scoring
+  score: 0, totalScore: 0,
+
+  // Challenge progress
+  puzzleNumber: 1, totalPuzzles: 20,
+
+  // Temporary visual feedback
+  goodFlash: new Set(),
+};
+
+/* ------------------------------ DOM elements (late-bound) ------------- */
+let difficultySel, gridTable, keysEl, newGameBtn, restartBtn, hintBtn, notesToggle,
+    eraseBtn, undoBtn, redoBtn, hintsUsedEl, mistakesEl, livesEl, coachMsg,
+    clearProgressBtn, scoreEl, challengeLabel, clockEl2, btnPause, btnResume,
+    btnStop, bestTimeEl, progressEl, totalScoreEl, notesStateEl,
+    levelSelectionEl, gameViewEl, gameMenuEl, settingsToggleBtn;
+
+/* ------------------------------ Storage keys -------------------------- */
+const SAVE_KEY = 'sudoku.learn.table.v3';
+const BEST_KEY = 'sudoku.bestTimes.v3';
+let bestTimes = { beginner: null, intermediate: null, advanced: null, expert: null };
+
+/* ------------------------------ Build guard --------------------------- */
+let isBuilding = false;
+let buildToken = 0;
+
+/* ========================= FAST INDEX MAPS & BITMASKS ===================
+    Solver/generator hot path uses bitmasks for speed:
+    - Each row/col/box keeps a 9-bit mask (or 4-bit for 4×4).
+    - 1 means digit is used; 0 means available.
+    - FULL_MASK = (1 << N) - 1
+    - MRV: pick the empty cell with the fewest candidates.
+========================================================================= */
+
+/** Cached per-size maps to avoid recomputing row/col/box lookups. */
+let MAPS = null;
+
+/**
+ * Build and cache row/col/box maps (and helpers) for size N and box B.
+ * @param {number} N - board size (4 or 9)
+ * @param {number} B - box size (2 or 3)
+ */
+function buildIndexMaps(N, B) {
+  if (MAPS && MAPS.N === N && MAPS.B === B) return MAPS;
+  const ROW_OF = new Int16Array(N * N);
+  const COL_OF = new Int16Array(N * N);
+  const BOX_OF = new Int16Array(N * N);
+  const CELLS_IN_BOX = Array.from({ length: N * N }, () => []);
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      const i = r * N + c;
+      ROW_OF[i] = r;
+      COL_OF[i] = c;
+      const br = Math.floor(r / B) * B, bc = Math.floor(c / B) * B;
+      const boxIndex = br + Math.floor(c / B);
+      BOX_OF[i] = br + Math.floor(c / B) + (Math.floor(r / B) * B - br);
+      // Correct box index: (Math.floor(r/B) * B) + Math.floor(c/B)
+      BOX_OF[i] = Math.floor(r / B) * B + Math.floor(c / B);
+    }
+  }
+  // Pre-list indices for each box (handy for some heuristics)
+  for (let i = 0; i < N * N; i++) CELLS_IN_BOX[BOX_OF[i]].push(i);
+
+  const FULL_MASK = (1 << N) - 1;
+  const bit = (v) => 1 << (v - 1);
+  const popcount = (m) => {
+    // Hamming weight for at most 9 bits; small and very fast.
+    m = m - ((m >>> 1) & 0x55555555);
+    m = (m & 0x33333333) + ((m >>> 2) & 0x33333333);
+    return (((m + (m >>> 4)) & 0x0F0F0F0F) * 0x01010101) >>> 24;
+  };
+  /** Convert mask to list of digits [1..N]. */
+  const maskToDigits = (m) => {
+    const out = [];
+    for (let v = 1; v <= N; v++) if (m & bit(v)) out.push(v);
+    return out;
+  };
+
+  MAPS = { N, B, ROW_OF, COL_OF, BOX_OF, CELLS_IN_BOX, FULL_MASK, bit, popcount, maskToDigits };
+  return MAPS;
+}
+
+/**
+ * Compute row/col/box masks for a given grid.
+ * @param {number[]} g - flat grid
+ * @param {object} M - index maps (buildIndexMaps)
+ */
+function computeMasks(g, M) {
+  const rows = new Int16Array(M.N);
+  const cols = new Int16Array(M.N);
+  const boxes = new Int16Array(M.N);
+  for (let i = 0; i < g.length; i++) {
+    const v = g[i];
+    if (!v) continue;
+    const b = M.bit(v);
+    rows[M.ROW_OF[i]] |= b;
+    cols[M.COL_OF[i]] |= b;
+    boxes[M.BOX_OF[i]] |= b;
+  }
+  return { rows, cols, boxes };
+}
+
+/** Get candidate mask for cell i from masks. 1-bits mean digit allowed. */
+function candidateMask(i, masks, M) {
+  const used = masks.rows[M.ROW_OF[i]] | masks.cols[M.COL_OF[i]] | masks.boxes[M.BOX_OF[i]];
+  return (M.FULL_MASK ^ used);
+}
+
+/* =============================== SOLVER =================================
+    Bitmask backtracking + MRV for speed. Can run in three modes:
+    - Normal solve (return a single solution).
+    - Count-only (stop after >1 solution).
+    - Metric (count "nodes" explored as a rough difficulty signal).
+=========================================================================== */
+
+/**
+ * Backtracking solver (bitmask + MRV).
+ * @param {number[]} puzzle - flat grid with 0 = empty
+ * @param {number} N - size (4 or 9)
+ * @param {number} B - box size (2 or 3)
+ * @param {object} opts - { countOnly: boolean, wantMetrics: boolean, maxSolutions: number }
+ * @returns {{solved:boolean, solution:number[]|null, solutionsCount:number, nodes:number}}
+ */
+function solveBacktrackingCore(puzzle, N, B, opts = {}) {
+  const { countOnly = false, wantMetrics = false, maxSolutions = 2 } = opts;
+  const M = buildIndexMaps(N, B);
+  const g = puzzle.slice();
+  const masks = computeMasks(g, M);
+  const empties = [];
+  for (let i = 0; i < g.length; i++) if (g[i] === 0) empties.push(i);
+
+  let solutions = 0;
+  let nodes = 0;
+  let solvedOnce = null;
+
+  // Choose next empty using MRV (fewest candidates)
+  function selectMRV() {
+    let bestIdx = -1, bestCount = 1e9;
+    for (let k = 0; k < empties.length; k++) {
+      const i = empties[k];
+      if (g[i] !== 0) continue;
+      const cm = candidateMask(i, masks, M);
+      const cnt = M.popcount(cm);
+      if (cnt === 0) return { i, cm, cnt: 0 };
+      if (cnt < bestCount) { bestCount = cnt; bestIdx = i; }
+      if (bestCount === 1) break;
+    }
+    const cm = bestIdx >= 0 ? candidateMask(bestIdx, masks, M) : 0;
+    return { i: bestIdx, cm, cnt: bestIdx >= 0 ? M.popcount(cm) : 0 };
+  }
+
+  function assign(i, v) {
+    g[i] = v;
+    const b = M.bit(v);
+    masks.rows[M.ROW_OF[i]] |= b;
+    masks.cols[M.COL_OF[i]] |= b;
+    masks.boxes[M.BOX_OF[i]] |= b;
+  }
+  function unassign(i, v) {
+    g[i] = 0;
+    const b = M.bit(v);
+    masks.rows[M.ROW_OF[i]] &= ~b;
+    masks.cols[M.COL_OF[i]] &= ~b;
+    masks.boxes[M.BOX_OF[i]] &= ~b;
+  }
+
+  function bt() {
+    // Completed?
+    if (g.every(Boolean)) {
+      solutions++;
+      if (!countOnly && !solvedOnce) solvedOnce = g.slice();
+      return (countOnly && solutions >= maxSolutions) || !countOnly; // early exit
+    }
+
+    const pick = selectMRV();
+    if (pick.i === -1 || pick.cnt === 0) return false; // dead end
+
+    // Randomize candidate order for variety
+    const cand = shuffled(M.maskToDigits(pick.cm));
+
+    for (let k = 0; k < cand.length; k++) {
+      const v = cand[k];
+      assign(pick.i, v);
+      nodes++;
+      if (bt()) return true;  // early-exit policy handled above
+      unassign(pick.i, v);
+    }
+    return false;
+  }
+
+  bt();
+
+  return {
+    solved: solutions > 0,
+    solution: solvedOnce,
+    solutionsCount: solutions,
+    nodes: wantMetrics ? nodes : 0
+  };
+}
+
+/**
+ * Public: Solve one solution (for gameplay / recovery).
+ */
+function solveBacktracking(p, N, B, countOnly = false) {
+  const res = solveBacktrackingCore(p, N, B, { countOnly, wantMetrics: false, maxSolutions: 2 });
+  return {
+    solved: res.solved,
+    solution: res.solution,
+    solutionsCount: res.solutionsCount
+  };
+}
+
+/**
+ * Public: Solve and return difficulty metric ("nodes").
+ * Higher nodes ≈ harder under this solver.
+ */
+function solveBacktrackingWithMetrics(p, N, B) {
+  const res = solveBacktrackingCore(p, N, B, { countOnly: false, wantMetrics: true, maxSolutions: 1 });
+  return { solved: res.solved, nodes: res.nodes, solutionsCount: res.solutionsCount };
+}
+
+/** Test if a puzzle has exactly one solution (fast cut-off at 2). */
+function hasUniqueSolution(p, N, B) {
+  return solveBacktrackingCore(p, N, B, { countOnly: true, wantMetrics: false, maxSolutions: 2 }).solutionsCount === 1;
+}
+
+/* ============================== GENERATION ==============================
+    - Generate a full valid grid quickly (bitmasks + MRV).
+    - Carve clues while preserving uniqueness and respecting difficulty targets.
+    - Guard with per-difficulty try/time budgets so UI stays responsive.
+=========================================================================== */
+
+/**
+ * Construct a random full valid solution grid with bitmask MRV.
+ */
+function generateFullSolution(N, B) {
+  const M = buildIndexMaps(N, B);
+  const g = Array(N * N).fill(0);
+  const masks = { rows: new Int16Array(N), cols: new Int16Array(N), boxes: new Int16Array(N) };
+  const order = shuffled([...Array(N * N).keys()]); // fill order randomized
+
+  function selectMRV() {
+    let best = -1, bestCnt = 1e9, bestMask = 0;
+    for (let idx = 0; idx < order.length; idx++) {
+      const i = order[idx];
+      if (g[i] !== 0) continue;
+      const cm = candidateMask(i, masks, M);
+      const cnt = M.popcount(cm);
+      if (cnt === 0) return { i, cm, cnt: 0 };
+      if (cnt < bestCnt) { bestCnt = cnt; best = i; bestMask = cm; }
+      if (bestCnt === 1) break;
+    }
+    return { i: best, cm: bestMask, cnt: bestCnt };
+  }
+
+  function assign(i, v) {
+    g[i] = v;
+    const b = M.bit(v);
+    masks.rows[M.ROW_OF[i]] |= b;
+    masks.cols[M.COL_OF[i]] |= b;
+    masks.boxes[M.BOX_OF[i]] |= b;
+  }
+  function unassign(i, v) {
+    g[i] = 0;
+    const b = M.bit(v);
+    masks.rows[M.ROW_OF[i]] &= ~b;
+    masks.cols[M.COL_OF[i]] &= ~b;
+    masks.boxes[M.BOX_OF[i]] &= ~b;
+  }
+
+  function bt() {
+    const pick = selectMRV();
+    if (pick.i === -1) return true;      // full
+    if (pick.cnt === 0) return false;    // dead
+
+    const cand = shuffled(M.maskToDigits(pick.cm));
+    for (let k = 0; k < cand.length; k++) {
+      const v = cand[k];
+      assign(pick.i, v);
+      if (bt()) return true;
+      unassign(pick.i, v);
+    }
+    return false;
+  }
+
+  bt();
+  return g;
+}
+
+/**
+ * Remove clues while keeping uniqueness, down to a min-clues threshold.
+ * Used for 4×4 beginner and as a generic fallback.
+ */
+function generatePuzzle(N, B) {
+  const minClues = (N === 4) ? 6 : 34;
+  const sol = generateFullSolution(N, B);
+  const idxs = shuffled([...Array(N * N).keys()]);
+  const puzzle = sol.slice();
+  let clues = N * N;
+
+  for (let t = 0; t < idxs.length; t++) {
+    const idx = idxs[t];
+    if (puzzle[idx] === 0) continue;
+    const keep = puzzle[idx];
+    puzzle[idx] = 0; clues--;
+    if (!hasUniqueSolution(puzzle, N, B)) {
+      puzzle[idx] = keep; clues++;
+    } else if (clues <= minClues) {
+      break;
+    }
+  }
+  return { puzzle, solution: sol };
+}
+
+/**
+ * Generate a 9×9 puzzle tailored to the requested difficulty.
+ * Uses try/time budgets so generation remains responsive on slower devices.
+ */
+function generatePuzzleForDifficulty(diff, N, B) {
+  // 4×4 / beginner uses the simple (and fast) generator.
+  if (N === 4 || diff === 'beginner') return generatePuzzle(N, B);
+
+  const cfg = DIFF_CONFIG[diff] || DIFF_CONFIG.intermediate;
+  const MAX_TRIES = cfg.maxTries ?? 20;
+  const deadline  = nowMs() + (cfg.maxGenMs ?? 500);
+
+  let best = null; // track the best candidate when time/tries run out
+
+  for (let attempt = 0; attempt < MAX_TRIES; attempt++) {
+    if (nowMs() > deadline) break;
+
+    // 1) Start from a fresh full solution
+    const sol = generateFullSolution(N, B);
+    const puzzle = sol.slice();
+    let clues = N * N;
+
+    // 2) Carve clues toward minClues, keeping uniqueness
+    const order = shuffled([...Array(N * N).keys()]);
+    for (const idx of order) {
+      if (puzzle[idx] === 0) continue;
+      const keep = puzzle[idx];
+      puzzle[idx] = 0; clues--;
+      if (!hasUniqueSolution(puzzle, N, B)) { puzzle[idx] = keep; clues++; }
+      if (clues <= cfg.minClues || nowMs() > deadline) break;
+    }
+
+    // 3) Nudge toward <= maxClues (still unique)
+    const order2 = shuffled([...Array(N * N).keys()]);
+    for (const idx of order2) {
+      if (puzzle[idx] === 0) continue;
+      const keep = puzzle[idx];
+      puzzle[idx] = 0; clues--;
+      if (!hasUniqueSolution(puzzle, N, B) || clues < cfg.minClues) { puzzle[idx] = keep; clues++; }
+      if (clues <= cfg.maxClues || nowMs() > deadline) break;
+    }
+
+    // Reject if out of clue band
+    if (clues < cfg.minClues || clues > cfg.maxClues) {
+      // keep closest as a fallback
+      const mid = (cfg.minClues + cfg.maxClues) >> 1;
+      if (!best || Math.abs(clues - mid) < Math.abs(best.clues - mid)) {
+        best = { puzzle: puzzle.slice(), solution: sol.slice(), clues, nodes: 0 };
+      }
+      continue;
+    }
+
+    // 4) Quick “human” and “search hardness” checks
+    const singles = solveWithSingles(puzzle, N, B);
+    const metrics = solveBacktrackingWithMetrics(puzzle, N, B); // counts nodes
+    const unique  = hasUniqueSolution(puzzle, N, B);
+    if (!unique) continue;
+
+    const okSingles = cfg.requireSinglesSolvable ? singles.solved : !singles.solved;
+    const okNodes   = (metrics.nodes || 0) >= (cfg.minSearchNodes || 0);
+
+    if (okSingles && okNodes) {
+      return { puzzle, solution: sol };
+    }
+
+    // keep a decent fallback
+    if (!best || metrics.nodes > (best.nodes || -1)) {
+      best = { puzzle: puzzle.slice(), solution: sol.slice(), clues, nodes: metrics.nodes };
+    }
+  }
+
+  // Fallbacks when we run out of time/tries
+  if (best) return { puzzle: best.puzzle, solution: best.solution };
+  return generatePuzzle(N, B); // basic unique + minClues
+}
+
+/* ------------------------------ Index helpers ------------------------- */
+/** Convert row/col to flat index. */
+function rcToIndex(r, c, N) { return r * N + c; }
+/** Indices in the same row as index i. */
+function rowIndices(i, N) { const r = Math.floor(i / N); return Array.from({ length: N }, (_, c) => rcToIndex(r, c, N)); }
+/** Indices in the same column as index i. */
+function colIndices(i, N) { const c = i % N; return Array.from({ length: N }, (_, r) => rcToIndex(r, c, N)); }
+/** Indices in the same box as index i. */
+function boxIndices(i, N, B) {
+  const r = Math.floor(i / N), c = i % N;
+  const br = Math.floor(r / B) * B, bc = Math.floor(c / B) * B;
+  const out = [];
+  for (let rr = 0; rr < B; rr++) for (let cc = 0; cc < B; cc++) out.push(rcToIndex(br + rr, bc + cc, N));
+  return out;
+}
+
+/* ------------------------------ Candidates / constraints ---------------
+    Note: These simple Set-based helpers are used only for UI-ish tasks
+    (notes & hints). The heavy solver/generator uses the fast bitmask engine.
+-------------------------------------------------------------------------*/
+function usedInRow(i, g, N)    { return new Set(rowIndices(i, N).map(j => g[j]).filter(Boolean)); }
+function usedInCol(i, g, N)    { return new Set(colIndices(i, N).map(j => g[j]).filter(Boolean)); }
+function usedInBox(i, g, N, B) { return new Set(boxIndices(i, N, B).map(j => g[j]).filter(Boolean)); }
+function candidatesFor(i, g, N, B) {
+  if (g[i] !== 0) return [];
+  const used = new Set([...usedInRow(i, g, N), ...usedInCol(i, g, N), ...usedInBox(i, g, N, B)]);
+  const cand = [];
+  for (let v = 1; v <= N; v++) if (!used.has(v)) cand.push(v);
+  return cand;
+}
+
+/* ------------------------------ Grid building ------------------------- */
+let cells = [];       // <td> elements (one per cell)
+let cellInners = [];  // <div class="cell-inner"> inside each td
+let lastVal = [];     // cache to avoid re-render
+let lastNotesSig = [];
+
+/**
+ * Build the HTML for an empty N×N table body with thick box borders.
+ */
+function gridHTML(N, B) {
+  let html = '<colgroup>';
+  for (let c = 0; c < N; c++) html += `<col style="width:${100 / N}%">`;
+  html += '</colgroup><tbody>';
+  for (let r = 0; r < N; r++) {
+    html += '<tr>';
+    for (let c = 0; c < N; c++) {
+      const i = rcToIndex(r, c, N);
+      const boxRight  = ((c + 1) % B === 0 && c !== N - 1) ? ' box-right'  : '';
+      const boxBottom = ((r + 1) % B === 0 && r !== N - 1) ? ' box-bottom' : '';
+      html += `<td class="cell${boxRight}${boxBottom}" data-idx="${i}"><div class="cell-inner"></div></td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody>';
+  return html;
+}
+
+/**
+ * Create/refresh the visible table based on current N, B.
+ * Uses a build guard to avoid race conditions during rebuilds.
+ */
+
+function buildGridTable() {
+  if (!gridTable || isBuilding) return;
+  isBuilding = true;
+  const token = ++buildToken;
+
+  const N = state.size, B = state.boxSize;
+
+  // If you have this util, keep it. (Not CSP-related)
+  if (typeof buildIndexMaps === 'function') buildIndexMaps(N, B);
+
+  // ❌ REMOVE this (blocked by CSP): gridTable.style.maxWidth = ...
+  // ✅ Let CSS decide width based on data-n
+  gridTable.dataset.n = String(N);
+
+  // Rebuild table markup (now without any inline styles; see gridHTML below)
+  gridTable.innerHTML = gridHTML(N, B);
+
+  // Cache references
+  cells = Array.from(gridTable.querySelectorAll('td.cell'));
+  cellInners = cells.map(td => td.firstElementChild);
+  lastVal = Array(N * N).fill(undefined);
+  lastNotesSig = Array(N * N).fill('');
+
+  // Avoid layout thrash; render on next frame
+  requestAnimationFrame(() => {
+    if (token !== buildToken) { isBuilding = false; return; }
+    ensureNxN();
+    isBuilding = false;
+    renderAll();
+  });
+}
+
+function gridHTML(N, B) {
+  let html = '<colgroup>';
+  // ❌ Do NOT set <col style="width:...%"> — blocked by CSP
+  // ✅ Equal columns will be handled by CSS (table-layout: fixed)
+  for (let c = 0; c < N; c++) html += '<col>';
+  html += '</colgroup><tbody>';
+
+  for (let r = 0; r < N; r++) {
+    html += '<tr>';
+    for (let c = 0; c < N; c++) {
+      const i = rcToIndex(r, c, N);
+      const boxRight  = ((c + 1) % B === 0 && c !== N - 1) ? ' box-right'  : '';
+      const boxBottom = ((r + 1) % B === 0 && r !== N - 1) ? ' box-bottom' : '';
+      html += `<td class="cell${boxRight}${boxBottom}" data-idx="${i}"><div class="cell-inner"></div></td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody>';
+  return html;
+}
+
+/**
+ * Safety: ensure the table truly matches N×N (covers odd dynamic resizes).
+ */
+function ensureNxN() {
+  if (!gridTable) return;
+  const N = state.size;
+  const rows = gridTable.querySelectorAll('tbody tr').length;
+  const cols = gridTable.querySelectorAll('colgroup col').length;
+  if (rows !== N || cols !== N) {
+    gridTable.innerHTML = gridHTML(N, state.boxSize);
+    gridTable.dataset.n = String(N);
+    cells = Array.from(gridTable.querySelectorAll('td.cell'));
+    cellInners = cells.map(td => td.firstElementChild);
+    lastVal = Array(N * N).fill(undefined);
+    lastNotesSig = Array(N * N).fill('');
+  }
+}
+
+/* ------------------------------ Notes UI -------------------------------- */
+
+/**
+ * Toggle a note digit in a cell's Set (creates set on demand).
+ */
+function toggleNote(i, n) {
+  if (!state.notes[i]) state.notes[i] = new Set();
+  const s = state.notes[i];
+  if (s.has(n)) s.delete(n); else s.add(n);
+  if (s.size === 0) delete state.notes[i];
+}
+
+/**
+ * Build HTML for a 3×3 (or 2×2) mini notes grid.
+ */
+function buildNotesHTML(N, notesSet) {
+  const small = (N === 4);
+  const slots = small ? 4 : 9;
+  let html = `<div class="notes ${small ? 'small' : ''}">`;
+  for (let v = 1; v <= slots; v++) html += `<div class="note">${notesSet.has(v) ? v : ''}</div>`;
+  html += `</div>`;
+  return html;
+}
+
+/* ------------------------------ Rendering -------------------------------- */
+
+/** Keep the compact game-status row synchronized with the existing state. */
+function updateStatusUI() {
+  const totalOpen = state.givens.reduce((count, value) => count + (value === 0 ? 1 : 0), 0);
+  const completed = state.grid.reduce((count, value, index) =>
+    count + (state.givens[index] === 0 && value !== 0 ? 1 : 0), 0);
+
+  if (progressEl) progressEl.textContent = `${completed}/${totalOpen}`;
+  if (hintsUsedEl) {
+    const remaining = Math.max(0, MAX_HINTS - state.hintsUsed);
+    hintsUsedEl.textContent = String(remaining);
+    hintsUsedEl.setAttribute('aria-label', `${remaining} hints remaining`);
+  }
+  if (mistakesEl) mistakesEl.textContent = state.mistakes;
+  if (scoreEl) scoreEl.textContent = state.score;
+  if (totalScoreEl) totalScoreEl.textContent = state.totalScore;
+  if (notesToggle) notesToggle.setAttribute('aria-pressed', String(state.notesMode));
+  if (notesStateEl) notesStateEl.textContent = state.notesMode ? 'On' : 'Off';
+  updateChallengeLabel();
+  updateLives();
+}
+
+/**
+ * Paint a single cell from current state (value, notes, highlights).
+ * Uses small caches to avoid unnecessary DOM writes.
+ */
+function paintCell(i) {
+  if (!cells[i]) return;
+  const td = cells[i];
+  const inner = cellInners[i];
+
+  const N = state.size;
+  const val = state.grid[i];
+  const given = state.givens[i] !== 0;
+
+  td.classList.toggle('prefilled', given);
+  td.classList.toggle('selected', state.selected === i);
+  td.classList.toggle('mistakeNumber', state.mistakeCells.has(i));
+  td.classList.toggle('hint-highlight', state.hintTarget === i);
+  td.classList.toggle('goodNumber', state.goodFlash.has(i));
+
+  const selected = state.selected;
+  let related = false;
+  if (selected != null && selected !== i) {
+    const row = Math.floor(i / N), col = i % N;
+    const selectedRow = Math.floor(selected / N), selectedCol = selected % N;
+    const box = Math.floor(row / state.boxSize) * state.boxSize + Math.floor(col / state.boxSize);
+    const selectedBox = Math.floor(selectedRow / state.boxSize) * state.boxSize + Math.floor(selectedCol / state.boxSize);
+    related = row === selectedRow || col === selectedCol || box === selectedBox;
+  }
+  td.classList.toggle('peer', related);
+
+  const same = state.highlightNumber != null && val === state.highlightNumber;
+  td.classList.toggle('sameNumber', same);
+
+  // If value changed, update text and clear notes render cache
+  if (lastVal[i] !== val) {
+    lastVal[i] = val;
+    lastNotesSig[i] = '';
+    inner.textContent = val ? String(val) : '';
+  }
+
+  // Render notes overlay only when cell is blank
+  if (val === 0) {
+    const s = state.notes[i];
+    const sig = s ? [...s].sort().join(',') : '';
+    if (sig !== lastNotesSig[i]) {
+      lastNotesSig[i] = sig;
+      inner.innerHTML = s && s.size ? buildNotesHTML(N, s) : '';
+    }
+  }
+}
+
+/**
+ * Paint the entire board and HUD bits.
+ */
+function renderAll() {
+  const total = state.size * state.size;
+  for (let i = 0; i < total; i++) paintCell(i);
+
+  updateNumpadCounts();
+  updateNumpadActiveStyle();
+
+  updateStatusUI();
+}
+
+/**
+ * Update only same-number highlighting (fast path).
+ */
+function repaintHighlightsOnly() {
+  if (!cells.length) return;
+  const total = state.size * state.size;
+  for (let i = 0; i < total; i++) {
+    const td = cells[i]; const val = state.grid[i];
+    td.classList.toggle('sameNumber', state.highlightNumber != null && val === state.highlightNumber);
+  }
+}
+
+/* ------------------------------ Highlight control ---------------------- */
+
+/** Toggle number highlighting on the board. */
+function setHighlightNumber(num) {
+  state.highlightNumber = (state.highlightNumber === num ? null : num);
+  repaintHighlightsOnly();
+  updateNumpadActiveStyle();
+}
+
+/* ------------------------------ Numpad counters ------------------------ */
+
+/** Count remaining placements per digit (for the HUD under each button). */
+function remainingByDigit() {
+  const N = state.size;
+  const left = Array(N + 1).fill(N);
+  for (let i = 0; i < state.grid.length; i++) {
+    const v = state.grid[i];
+    if (v) left[v]--;
+  }
+  for (let v = 1; v <= N; v++) if (left[v] < 0) left[v] = 0;
+  return left;
+}
+
+/** Update the remaining counts visible on each number key. */
+function updateNumpadCounts() {
+  if (!keysEl) return;
+  const N = state.size;
+  const left = remainingByDigit();
+  keysEl.dataset.n = String(N);
+  for (let v = 1; v <= N; v++) {
+    const btn = keysEl.querySelector(`button[data-value="${v}"]`);
+    if (!btn) continue;
+    const remainEl = btn.querySelector('.remain');
+    if (remainEl) remainEl.textContent = left[v];
+    btn.classList.toggle('exhausted', left[v] === 0);
+  }
+}
+
+/** Visually toggle the active number in the numpad. */
+function updateNumpadActiveStyle() {
+  if (!keysEl) return;
+  $$('#keys button').forEach(btn => {
+    const n = +btn.dataset.value;
+    btn.classList.toggle('active', n === state.highlightNumber);
+  });
+}
+
+/* ------------------------------ Input & gameplay ----------------------- */
+
+/**
+ * Board click: select cell; clicking a filled cell toggles highlight by its value.
+ */
+function onGridClick(e) {
+  const td = e.target.closest('td.cell');
+  if (!td || !gridTable || !gridTable.contains(td)) return;
+  state.selected = +td.dataset.idx;
+  for (let i = 0; i < cells.length; i++) paintCell(i);
+  const v = state.grid[state.selected];
+  if (v) setHighlightNumber(v);
+}
+
+/**
+ * Push a snapshot onto the undo stack (and clear redo).
+ * We keep only the necessary diffable state.
+ */
+function pushUndo() {
+  state.undoStack.push({
+    grid: state.grid.slice(),
+    notes: serializeNotes(state.notes),
+    selected: state.selected,
+    score: state.score,
+    highlightNumber: state.highlightNumber,
+  });
+  state.redoStack = [];
+}
+
+/** Undo last action, restoring a saved snapshot. */
+function undo() {
+  if (!state.undoStack.length) return coach('↩️ Nothing to undo!');
+  const s = state.undoStack.pop();
+  state.redoStack.push({
+    grid: state.grid.slice(),
+    notes: serializeNotes(state.notes),
+    selected: state.selected,
+    score: state.score,
+    highlightNumber: state.highlightNumber,
+  });
+  state.grid = s.grid;
+  state.notes = deserializeNotes(s.notes);
+  state.selected = s.selected;
+  state.score = s.score;
+  state.highlightNumber = s.highlightNumber ?? null;
+  renderAll(); save(); coach('↩️ Undid your last move.');
+}
+
+/** Redo previously undone action. */
+function redo() {
+  if (!state.redoStack.length) return coach('↪️ Nothing to redo!');
+  const s = state.redoStack.pop();
+  state.undoStack.push({
+    grid: state.grid.slice(),
+    notes: serializeNotes(state.notes),
+    selected: state.selected,
+    score: state.score,
+    highlightNumber: state.highlightNumber,
+  });
+  state.grid = s.grid;
+  state.notes = deserializeNotes(s.notes);
+  state.selected = s.selected;
+  state.score = s.score;
+  state.highlightNumber = s.highlightNumber ?? null;
+  renderAll(); save(); coach('↪️ Redid your move.');
+}
+
+/**
+ * Briefly mark a cell as “good” (green) for visual feedback.
+ */
+function flashGood(i, ms = 480) {
+  state.goodFlash.add(i);
+  paintCell(i);
+  setTimeout(() => { state.goodFlash.delete(i); paintCell(i); }, ms);
+}
+
+/**
+ * Local row/col/box validity check for non-strict mode (kept for completeness).
+ */
+function isPlacementValidLocal(i) {
+  const N = state.size, B = state.boxSize, val = state.grid[i];
+  if (val === 0) return true;
+  const row = rowIndices(i, N).map(j => state.grid[j]);
+  const col = colIndices(i, N).map(j => state.grid[j]);
+  const box = boxIndices(i, N, B).map(j => state.grid[j]);
+  const onlyOnce = a => a.filter(v => v === val).length === 1;
+  return onlyOnce(row) && onlyOnce(col) && onlyOnce(box);
+}
+
+/**
+ * Main placement handler. In strict mode, only the solution digit is accepted.
+ * Supports notes-mode toggling and “exhausted digit” UX.
+ */
+function placeNumber(num) {
+  if (state.gameOver || state.selected == null) return;
+  const i = state.selected;
+  if (state.givens[i] !== 0) { setHighlightNumber(num); return; }
+
+  // Notes mode toggles candidates instead of placing a value
+  if (state.notesMode) {
+    pushUndo();
+    toggleNote(i, num);
+    state.highlightNumber = num;
+    paintCell(i); save();
+    return;
+  }
+
+  // Avoid placing a digit that's already exhausted (unless we're replacing it)
+  const left = remainingByDigit();
+  const current = state.grid[i];
+  if (left[num] === 0 && current !== num) {
+    state.highlightNumber = num;
+    repaintHighlightsOnly();
+    coach(`All ${num}’s are already placed.`);
+    return;
+  }
+
+  pushUndo();
+
+  if (STRICT_SOLUTION_CHECK) {
+    // Reject wrong digit (soft flash red, lose a heart, do not keep value)
+    if (num !== state.solution[i]) {
+      state.mistakes++;
+      state.mistakeCells.add(i);
+      paintCell(i);
+      setTimeout(() => { state.mistakeCells.delete(i); paintCell(i); }, 450);
+      coach('❌ Not the right number for this box. Try again!');
+      updateStatusUI();
+      save();
+      if (state.mistakes >= MAX_MISTAKES) gameOver();
+      return;
+    }
+
+    // Correct digit: place it, score, and flash green
+    state.grid[i] = num;
+    state.mistakeCells.delete(i);
+    delete state.notes[i];
+    state.score += 10;
+    flashGood(i);
+    coach('✅ Great! That’s the correct number.');
+
+  } else {
+    // Legacy/local validation mode
+    state.grid[i] = num;
+    if (!isPlacementValidLocal(i)) {
+      state.mistakes++;
+      state.mistakeCells.add(i);
+      state.score = Math.max(0, state.score - 5);
+      paintCell(i);
+      if (state.mistakes >= MAX_MISTAKES) return gameOver();
+      coach('❌ Oops! That number doesn’t fit.');
+    } else {
+      state.mistakeCells.delete(i);
+      state.score += 10;
+      delete state.notes[i];
+      flashGood(i);
+      coach('✅ Nice choice!');
+    }
+  }
+
+  // HUD updates
+  updateNumpadCounts();
+  updateNumpadActiveStyle();
+  updateStatusUI();
+
+  save();
+  checkWin();
+}
+
+/**
+ * Clear the selected editable cell (value + notes).
+ */
+function eraseCell() {
+  if (state.gameOver || state.selected == null) return;
+  const i = state.selected;
+  if (state.givens[i] !== 0) return;
+  pushUndo();
+  state.grid[i] = 0;
+  delete state.notes[i];
+  state.mistakeCells.delete(i);
+  paintCell(i);
+  updateNumpadCounts();
+  updateStatusUI();
+  save(); coach('🧽 Cleared that box.');
+}
+
+/* ------------------------------ Hints ---------------------------------- */
+
+/** Find a naked single: a cell with exactly one candidate. */
+function findNakedSingle(g, N, B) {
+  for (let i = 0; i < g.length; i++) {
+    if (g[i] === 0) {
+      const c = candidatesFor(i, g, N, B);
+      if (c.length === 1) return { idx: i, value: c[0] };
+    }
+  }
+  return null;
+}
+
+/** Find a hidden single: the only position in a unit (row/col/box) for a digit. */
+function findHiddenSingle(g, N, B) {
+  // rows
+  for (let r = 0; r < N; r++) {
+    const cells = Array.from({ length: N }, (_, c) => rcToIndex(r, c, N));
+    const pos = Array(N + 1).fill(null).map(() => []);
+    for (const i of cells) if (g[i] === 0) {
+      for (const v of candidatesFor(i, g, N, B)) pos[v].push(i);
+    }
+    for (let v = 1; v <= N; v++) if (pos[v].length === 1) return { idx: pos[v][0], value: v };
+  }
+  // cols
+  for (let c = 0; c < N; c++) {
+    const cells = Array.from({ length: N }, (_, r) => rcToIndex(r, c, N));
+    const pos = Array(N + 1).fill(null).map(() => []);
+    for (const i of cells) if (g[i] === 0) {
+      for (const v of candidatesFor(i, g, N, B)) pos[v].push(i);
+    }
+    for (let v = 1; v <= N; v++) if (pos[v].length === 1) return { idx: pos[v][0], value: v };
+  }
+  // boxes
+  for (let br = 0; br < N; br += B) {
+    for (let bc = 0; bc < N; bc += B) {
+      const i0 = rcToIndex(br, bc, N);
+      const cells = boxIndices(i0, N, B);
+      const pos = Array(N + 1).fill(null).map(() => []);
+      for (const i of cells) if (g[i] === 0) {
+        for (const v of candidatesFor(i, g, N, B)) pos[v].push(i);
+      }
+      for (let v = 1; v <= N; v++) if (pos[v].length === 1) return { idx: pos[v][0], value: v };
+    }
+  }
+  return null;
+}
+
+/**
+ * Try to solve using only naked + hidden singles.
+ * Used to gate "intermediate must be singles-solvable".
+ */
+function solveWithSingles(original, N, B) {
+  const g = original.slice();
+  let steps = 0;
+  while (true) {
+    let move = findNakedSingle(g, N, B);
+    if (!move) move = findHiddenSingle(g, N, B);
+    if (!move) break;
+    g[move.idx] = move.value;
+    steps++;
+  }
+  return { solved: g.every(v => v !== 0), steps };
+}
+
+/**
+ * Provide a hint: prefer naked single; else reveal one random empty cell's correct value.
+ */
+function hint() {
+  if (state.gameOver) return;
+  if (state.hintsUsed >= MAX_HINTS) return coach('⚠️ No more hints!');
+
+  let move = findNakedSingle(state.grid, state.size, state.boxSize);
+  if (!move) {
+    const empties = [];
+    for (let i = 0; i < state.grid.length; i++) if (state.grid[i] === 0) empties.push(i);
+    if (!empties.length) return coach('🤔 No hints needed!');
+    const idx = empties[Math.floor(Math.random() * empties.length)];
+    move = { idx, value: state.solution[idx] };
+  }
+
+  const prev = state.hintTarget;
+  state.hintsUsed++;
+  state.hintTarget = move.idx;
+  state.hintValue  = move.value;
+  if (prev != null) paintCell(prev);
+  paintCell(move.idx);
+  coach(`💡 Hint ${state.hintsUsed}/${MAX_HINTS}: This box should be ${move.value}.`);
+  updateStatusUI();
+  save();
+}
+
+/* ------------------------------ Game over & win ------------------------ */
+
+/** Show a gentle game-over overlay and offer restart/quit. */
+function gameOver() {
+  stopTimer();
+  state.gameOver = true;
+
+  coach('You were close. Try the puzzle again and use what you learned.');
+
+  const o = document.createElement('div');
+  o.className = 'game-over result-overlay loss-overlay';
+
+  o.innerHTML = `
+    <div class="overlay-box result-card" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+      <div class="result-icon loss-icon" aria-hidden="true">↻</div>
+
+      <p class="result-kicker">Keep going</p>
+
+      <h2 id="resultTitle">Almost there!</h2>
+
+      <p class="result-message">
+        Every attempt helps you spot the patterns faster.
+      </p>
+
+      <div class="result-stats">
+        <div>
+          <span>Score</span>
+          <strong>${state.score}</strong>
         </div>
-      </div>`,document.body.appendChild(t),f("#nextChallenge")?.addEventListener("click",()=>{document.body.removeChild(t),n.score=0,n.puzzleNumber++,te()}),f("#quitGame")?.addEventListener("click",()=>{document.body.removeChild(t),n.score=0,n.totalScore=0,ye(),b("\u{1F44B} Thanks for playing! Start a new game when ready.")}),k()}}function Z(e){_e&&(_e.textContent=e)}function P(){if(!K||!N)return;let e=!!n.timerId;K.hidden=!e,N.hidden=e}function ee(){let e=n.elapsed+(n.startTime?Math.floor((Date.now()-n.startTime)/1e3):0);Z(ne(e))}function gt(){M(),n.startTime=Date.now(),n.timerId=setInterval(ee,1e3),ee(),P()}function M(){n.timerId&&(clearInterval(n.timerId),n.timerId=null,n.elapsed+=Math.floor((Date.now()-n.startTime)/1e3),n.startTime=null,ee(),k()),P()}function Ne(){n.timerId||(n.startTime=Date.now(),n.timerId=setInterval(ee,1e3),ee(),P())}function Se(){M(),n.elapsed=0,Z("00:00"),k(),P()}function b(e){Ae&&(Ae.textContent=e)}function Gt(){if(!Le)return;let e=xe,t=Math.max(0,e-n.mistakes);Le.textContent="\u2764".repeat(t)+"\u2661".repeat(e-t)}function k(){let e={difficulty:n.difficulty,size:n.size,givens:n.givens,grid:n.grid,solution:n.solution,notes:ge(n.notes),elapsed:n.elapsed+(n.startTime?Math.floor((Date.now()-n.startTime)/1e3):0),hintsUsed:n.hintsUsed,hintTarget:n.hintTarget,mistakes:n.mistakes,mistakeCells:[...n.mistakeCells],score:n.score,totalScore:n.totalScore,puzzleNumber:n.puzzleNumber};try{localStorage.setItem(Be,JSON.stringify(e))}catch{}}function Ut(e,t,o){let s=pt(e,t,o,!1);return s.solved&&s.solution?s.solution:null}function Rt(){let e=localStorage.getItem(Be);if(!e){let t=localStorage.getItem("sudoku.learn.table.v1");t&&(e=t)}if(!e)return!1;try{let t=JSON.parse(e);n.difficulty=t.difficulty==="beginner"||t.difficulty==="intermediate"||t.difficulty==="advanced"||t.difficulty==="expert"?t.difficulty:"beginner",R(n.difficulty);let o=n.size;if(n.givens=re(t.givens,o),n.grid=re(t.grid,o),n.notes=bt(t.notes,o),n.elapsed=W(t.elapsed,0),n.hintsUsed=E(t.hintsUsed,0,ue,0),n.hintTarget=typeof t.hintTarget=="number"?E(t.hintTarget,0,o*o-1,null):null,n.mistakes=E(t.mistakes,0,999,0),n.mistakeCells=new Set(Array.isArray(t.mistakeCells)?t.mistakeCells.map(s=>E(s,0,o*o-1,-1)).filter(s=>s>=0):[]),n.score=W(t.score,0),n.totalScore=W(t.totalScore,0),n.puzzleNumber=E(t.puzzleNumber,1,9999,1),Array.isArray(t.solution)&&t.solution.length===o*o)n.solution=re(t.solution,o);else{let s=Ut(n.givens,o,n.boxSize);if(s)n.solution=re(s,o);else return!1}return C&&(C.value=n.difficulty),!0}catch{return!1}}function ye(){try{localStorage.removeItem(Be)}catch{}n.score=0,n.totalScore=0,n.puzzleNumber=1,R(n.difficulty),he(),b("\u{1F5D1}\uFE0F Progress cleared. Starting fresh!")}function qt(){try{let e=localStorage.getItem(it);e&&(Q={...Q,...JSON.parse(e)})}catch{}}function Dt(){try{localStorage.setItem(it,JSON.stringify(Q))}catch{}}function ht(e){let t=Q[e];return typeof t=="number"&&t>=0?t:null}function Ht(e,t){let o=ht(e);return o==null||t<o?(Q[e]=t,Dt(),U(),!0):!1}function U(){if(!Ge)return;let e=ht(n.difficulty);Ge.textContent=e==null?"\u2014":ne(e)}function R(e){e==="beginner"?(n.size=4,n.boxSize=2):(n.size=9,n.boxSize=3)}function je(){let e={beginner:"Beginner",intermediate:"Intermediate",advanced:"Advanced",expert:"Expert"};Fe&&(Fe.textContent=e[n.difficulty]||n.difficulty),Ve(".level-option").forEach(t=>{t.classList.toggle("is-current",t.dataset.difficulty===n.difficulty&&n.givens.length>0)})}function Vt(e){let t=e==="beginner"?4:9;return n.difficulty===e&&n.givens.length===t*t&&n.grid.length===t*t&&n.solution.length===t*t}function V(){_&&(_.hidden=!0),J&&J.setAttribute("aria-expanded","false")}function He(e=!0){e&&n.givens.length&&(M(),k()),V(),G&&(G.hidden=!0),Y&&(Y.hidden=!1),je(),window.scrollTo(0,0)}function Bt(){Y&&(Y.hidden=!0),G&&(G.hidden=!1),V(),window.scrollTo(0,0)}function Pt(e){let t=Vt(e)&&!n.gameOver;if(n.difficulty=e,R(e),C&&(C.value=e),U(),Bt(),t){Ke(),Ye(),Z(ne(n.elapsed)),O(),Ne(),b("\u{1F44B} Welcome back! Your puzzle is ready.");return}n.puzzleNumber=1,te()}function te(){H||(b("\u23F3 Generating puzzle\u2026"),setTimeout(()=>{Se(),Object.assign(n,{hintsUsed:0,hintTarget:null,hintValue:null,mistakes:0,mistakeCells:new Set,gameOver:!1,undoStack:[],redoStack:[],score:0,notes:{},highlightNumber:null,goodFlash:new Set}),R(n.difficulty);let{puzzle:e,solution:t}=yt(n.difficulty,n.size,n.boxSize);n.givens=e.slice(),n.grid=e.slice(),n.solution=t.slice(),I&&(I.disabled=!0),Ke(),Ye(),gt(),k(),U(),setTimeout(()=>{I&&(I.disabled=!1)},300),b("\u{1F3B2} New puzzle ready!")},0))}function Wt(){H||(Se(),Object.assign(n,{grid:n.givens.slice(),mistakes:0,mistakeCells:new Set,hintsUsed:0,hintTarget:null,hintValue:null,gameOver:!1,undoStack:[],redoStack:[],score:0,notes:{},highlightNumber:null,goodFlash:new Set}),Ke(),Ye(),gt(),k(),U())}function Ye(){if(!w)return;w.innerHTML="";let e=n.size;w.dataset.n=String(e);for(let t=1;t<=e;t++){let o=document.createElement("button");o.type="button",o.innerHTML=`<div class="digit">${t}</div><div class="remain">0</div>`,o.dataset.value=String(t),o.setAttribute("aria-label",`Number ${t}`),o.addEventListener("click",()=>{let s=n.selected;if(!(s!=null&&n.givens[s]===0)){be(t);return}dt(t),n.highlightNumber=t,me()}),w.appendChild(o)}ve(),pe()}document.addEventListener("keydown",e=>{if(!G||G.hidden)return;if(e.code==="Space"){e.preventDefault(),n.timerId?M():Ne();return}if(e.code==="KeyS"&&e.shiftKey){e.preventDefault(),Se();return}let t=Number(e.key);if(!Number.isInteger(t)||t<1||t>n.size)return;let o=n.selected;if(!(o!=null&&n.givens[o]===0)){be(t);return}dt(t),n.highlightNumber=t,me()});function Xt(){C=f("#difficulty"),S=f("#gridTable"),w=f("#keys"),I=f("#newGame"),ze=f("#restartGame"),we=f("#hintBtn"),F=f("#notesToggle"),Te=f("#eraseBtn"),Ce=f("#undoBtn"),Oe=f("#redoBtn"),le=f("#hintsUsed"),Me=f("#mistakes"),Le=f("#lives"),Ae=f("#coachMsg"),Ee=f("#clearProgress"),Ie=f("#score"),Fe=f("#challengeLabel"),_e=f("#clock"),K=f("#btn-pause")||f("#btnPause"),N=f("#btn-resume")||f("#btnResume"),$e=f("#btn-stop")||f("#btnStop"),Ge=f("#bestTime"),Ue=f("#progressText"),Re=f("#totalScore"),j=f("#notesState"),Y=f("#levelSelection"),G=f("#gameView"),_=f("#gameMenu"),J=f("#settingsToggle")}function Kt(){Ve(".level-option").forEach(e=>{e.addEventListener("click",()=>Pt(e.dataset.difficulty))}),f("#backToLevels")?.addEventListener("click",()=>He()),f("#changeLevel")?.addEventListener("click",()=>He()),J?.addEventListener("click",()=>{let e=_?_.hidden:!1;_&&(_.hidden=!e),J.setAttribute("aria-expanded",String(e))}),f("#howToButton")?.addEventListener("click",()=>{let e=f("#howTo");e&&(e.open=!0,V(),e.scrollIntoView({behavior:"smooth",block:"start"}))}),S&&S.addEventListener("click",Ot),I&&I.addEventListener("click",()=>{V(),te()}),ze&&ze.addEventListener("click",()=>{V(),Wt()}),we&&we.addEventListener("click",_t),Te&&Te.addEventListener("click",Et),Ce&&Ce.addEventListener("click",Mt),Oe&&Oe.addEventListener("click",()=>{V(),Lt()}),K&&K.addEventListener("click",M),N&&N.addEventListener("click",Ne),$e&&$e.addEventListener("click",Se),F&&F.addEventListener("click",()=>{n.notesMode=!n.notesMode,F.setAttribute("aria-pressed",String(n.notesMode)),F.title=`Notes mode ${n.notesMode?"on":"off"}`,j&&(j.textContent=n.notesMode?"On":"Off"),b(n.notesMode?"\u{1F4DD} Notes ON: Tap a box, then tap numbers to make tiny helper notes.":"\u{1F446} Notes OFF: Tap a box, then tap a number to place it.")}),C&&C.addEventListener("change",()=>{n.difficulty=C.value,R(n.difficulty),n.puzzleNumber=1,U(),te()}),Ee&&Ee.addEventListener("click",()=>{ye(),b("Save cleared")}),document.addEventListener("visibilitychange",()=>{document.hidden&&n.timerId&&M()}),window.addEventListener("beforeunload",k)}function ot(){Xt(),qt();let e=Rt();R(n.difficulty),U(),[4,9].includes(n.size)||(n.difficulty="beginner",R(n.difficulty),ye(),U()),Kt(),e?(Z(ne(n.elapsed)),P(),O(),b("\u{1F44B} Saved puzzle ready. Choose its level to continue.")):(Z("00:00"),P(),je()),He(!1)}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",ot,{once:!0}):ot();})();
+
+        <div>
+          <span>Total score</span>
+          <strong>${state.totalScore}</strong>
+        </div>
+      </div>
+
+      <div class="buttons">
+        <button id="restartAfter" class="primary-result-btn">
+          Try Again
+        </button>
+
+        <button id="quitGame" class="secondary-result-btn">
+          Back to Levels
+        </button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(o);
+
+  $('#restartAfter')?.addEventListener('click', () => {
+    document.body.removeChild(o);
+    state.score = 0;
+    newGame();
+  });
+
+  $('#quitGame')?.addEventListener('click', () => {
+    document.body.removeChild(o);
+
+    state.score = 0;
+    state.totalScore = 0;
+
+    clearSave();
+
+    coach('Choose a level whenever you’re ready for another puzzle.');
+
+    // Use your existing function for returning to level selection
+    // if you already have one.
+    $('#backToLevels')?.click();
+  });
+}
+
+/**
+ * If the current grid matches the stored solution exactly, stop the timer,
+ * award points, record PB, and show the win overlay.
+ */
+function checkWin() {
+  if (
+    state.grid.length &&
+    state.grid.every((v, i) => v !== 0 && v === state.solution[i])
+  ) {
+    stopTimer();
+
+    state.score += 100;
+    state.totalScore += state.score;
+    updateStatusUI();
+
+    const secondsUsed = state.elapsed;
+    const isNewBest = setPersonalBest(state.difficulty, secondsUsed);
+
+    if (isNewBest) {
+      coach(`🏅 New personal best: ${fmtTime(secondsUsed)}!`);
+    } else {
+      coach('Great work! You completed the puzzle.');
+    }
+
+    const winOverlay = document.createElement('div');
+    winOverlay.className = 'game-over result-overlay win-overlay';
+
+    winOverlay.innerHTML = `
+      <div
+        class="overlay-box result-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="winTitle"
+      >
+        <div class="result-icon win-icon" aria-hidden="true">
+          ✓
+        </div>
+
+        <p class="result-kicker">Puzzle Complete</p>
+
+        <h2 id="winTitle">Well done!</h2>
+
+        <p class="result-message">
+          You completed the puzzle${isNewBest ? ' with a new personal best!' : '.'}
+        </p>
+
+        <div class="result-stats">
+          <div>
+            <span>Score</span>
+            <strong>${state.score}</strong>
+          </div>
+
+          <div>
+            <span>Time</span>
+            <strong>${fmtTime(secondsUsed)}</strong>
+          </div>
+        </div>
+
+        ${
+          isNewBest
+            ? `
+              <p class="personal-best">
+                🏅 New personal best
+              </p>
+            `
+            : ''
+        }
+
+        <p class="result-total">
+          Total score <strong>${state.totalScore}</strong>
+        </p>
+
+        <div class="buttons">
+          <button
+            id="nextChallenge"
+            class="primary-result-btn"
+            type="button"
+          >
+            Next Puzzle
+          </button>
+
+          <button
+            id="quitGame"
+            class="secondary-result-btn"
+            type="button"
+          >
+            Quit
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(winOverlay);
+
+    $('#nextChallenge')?.addEventListener('click', () => {
+      document.body.removeChild(winOverlay);
+
+      state.score = 0;
+      state.puzzleNumber++;
+
+      newGame();
+    });
+
+    $('#quitGame')?.addEventListener('click', () => {
+      document.body.removeChild(winOverlay);
+
+      state.score = 0;
+      state.totalScore = 0;
+
+      clearSave();
+
+      coach('👋 Thanks for playing! Start a new game when ready.');
+    });
+
+    save();
+  }
+}
+/* ------------------------------ Timer ---------------------------------- */
+
+/** Write the clock text to the UI safely. */
+function writeClocks(text) { if (clockEl2) clockEl2.textContent = text; }
+
+/** Show/hide Pause/Resume buttons depending on timer state. */
+function syncTimerButtons() {
+  if (!btnPause || !btnResume) return;
+  const running = !!state.timerId;
+  btnPause.hidden = !running;
+  btnResume.hidden = running;
+}
+
+/** Update the clock every second while running. */
+function tickClock() {
+  const sec = state.elapsed + (state.startTime ? Math.floor((Date.now() - state.startTime) / 1000) : 0);
+  writeClocks(fmtTime(sec));
+}
+
+/** Start the game timer. */
+function startTimer() { stopTimer(); state.startTime = Date.now(); state.timerId = setInterval(tickClock, 1000); tickClock(); syncTimerButtons(); }
+
+/** Stop/pause the game timer and persist elapsed time. */
+function stopTimer() {
+  if (state.timerId) {
+    clearInterval(state.timerId);
+    state.timerId = null;
+    state.elapsed += Math.floor((Date.now() - state.startTime) / 1000);
+    state.startTime = null;
+    tickClock(); save();
+  }
+  syncTimerButtons();
+}
+
+/** Resume a paused timer. */
+function resumeTimer() { if (state.timerId) return; state.startTime = Date.now(); state.timerId = setInterval(tickClock, 1000); tickClock(); syncTimerButtons(); }
+
+/** Fully reset the clock display & counters. */
+function resetTimer() { stopTimer(); state.elapsed = 0; writeClocks('00:00'); save(); syncTimerButtons(); }
+
+/** Show a short helpful message (textContent for safety). */
+function coach(msg) { if (coachMsg) coachMsg.textContent = msg; }
+
+/* ------------------------------ Lives / hearts ------------------------- */
+
+/** Update the ♥♥♥ UI based on the number of mistakes. */
+function updateLives() {
+  if (!livesEl) return;
+  const totalLives = MAX_MISTAKES;
+  const remaining = Math.max(0, totalLives - state.mistakes);
+  livesEl.textContent = '❤'.repeat(remaining) + '♡'.repeat(totalLives - remaining);
+}
+
+/* ------------------------------ Save / Load --------------------------- */
+
+/**
+ * Persist the current game into localStorage (best-effort).
+ */
+function save() {
+  const data = {
+    difficulty: state.difficulty,
+    size: state.size,
+    givens: state.givens,
+    grid: state.grid,
+    solution: state.solution, // keep the reference solution
+    notes: serializeNotes(state.notes),
+    elapsed: state.elapsed + (state.startTime ? Math.floor((Date.now() - state.startTime) / 1000) : 0),
+    hintsUsed: state.hintsUsed,
+    hintTarget: state.hintTarget,
+    mistakes: state.mistakes,
+    mistakeCells: [...state.mistakeCells],
+    score: state.score,
+    totalScore: state.totalScore,
+    puzzleNumber: state.puzzleNumber,
+  };
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch {}
+}
+
+/** Try solving a puzzle to recover a missing solution (older saves). */
+function trySolveForSolution(puzzle, N, B) {
+  const out = solveBacktracking(puzzle, N, B, /*countOnly*/ false);
+  return out.solved && out.solution ? out.solution : null;
+}
+
+/**
+ * Load save from localStorage (validated); return true if loaded.
+ */
+function load() {
+  let raw = localStorage.getItem(SAVE_KEY);
+  if (!raw) {
+    // Back-compat with older key
+    const oldRaw = localStorage.getItem('sudoku.learn.table.v3');
+    if (oldRaw) raw = oldRaw;
+  }
+  if (!raw) return false;
+
+  try {
+    const d = JSON.parse(raw);
+
+    // Difficulty must be one of known values
+    state.difficulty = (d.difficulty === 'beginner' || d.difficulty === 'intermediate' ||
+                        d.difficulty === 'advanced'  || d.difficulty === 'expert')
+                        ? d.difficulty : 'beginner';
+
+    setBoardSizeFromDifficulty(state.difficulty);
+    const N = state.size;
+
+    // Arrays must match expected shape, values clamped to ranges
+    state.givens = cleanGridArray(d.givens, N);
+    state.grid   = cleanGridArray(d.grid,   N);
+    state.notes  = cleanNotes(d.notes, N);
+
+    // Numbers are coerced; indices are clamped
+    state.elapsed      = toInt(d.elapsed, 0);
+    state.hintsUsed    = clampInt(d.hintsUsed, 0, MAX_HINTS, 0);
+    state.hintTarget   = (typeof d.hintTarget === 'number') ? clampInt(d.hintTarget, 0, N*N-1, null) : null;
+    state.mistakes     = clampInt(d.mistakes, 0, 999, 0);
+    state.mistakeCells = new Set(Array.isArray(d.mistakeCells)
+                          ? d.mistakeCells.map(x => clampInt(x, 0, N*N-1, -1)).filter(x => x >= 0)
+                          : []);
+    state.score        = toInt(d.score, 0);
+    state.totalScore   = toInt(d.totalScore, 0);
+    state.puzzleNumber = clampInt(d.puzzleNumber, 1, 9999, 1);
+
+    // Ensure we have a matching-size solution
+    if (Array.isArray(d.solution) && d.solution.length === N * N) {
+      state.solution = cleanGridArray(d.solution, N);
+    } else {
+      const sol = trySolveForSolution(state.givens, N, state.boxSize);
+      if (sol) state.solution = cleanGridArray(sol, N);
+      else return false; // corrupted/unsolvable save → start new
+    }
+
+    if (difficultySel) difficultySel.value = state.difficulty;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Clear persistent save and reset progress counters. */
+function clearSave() {
+  try {
+    localStorage.removeItem(SAVE_KEY);
+    localStorage.removeItem('sudoku.learn.table.v3');
+  } catch {}
+
+  state.score = 0;
+  state.totalScore = 0;
+  state.puzzleNumber = 1;
+
+  setBoardSizeFromDifficulty(state.difficulty);
+  renderAll();
+
+  coach('Saved game deleted. Choose a level when you’re ready to start again.');
+}
+
+/* ------------------------------ Personal Bests ------------------------ */
+function loadBestTimes() { try { const raw = localStorage.getItem(BEST_KEY); if (raw) bestTimes = { ...bestTimes, ...JSON.parse(raw) }; } catch {} }
+function saveBestTimes() { try { localStorage.setItem(BEST_KEY, JSON.stringify(bestTimes)); } catch {} }
+function getBestSecondsFor(diff) { const v = bestTimes[diff]; return (typeof v === 'number' && v >= 0) ? v : null; }
+function setPersonalBest(diff, seconds) {
+  const cur = getBestSecondsFor(diff);
+  if (cur == null || seconds < cur) { bestTimes[diff] = seconds; saveBestTimes(); updateBestTimeUI(); return true; }
+  return false;
+}
+function updateBestTimeUI() {
+  if (!bestTimeEl) return;
+  const v = getBestSecondsFor(state.difficulty);
+  bestTimeEl.textContent = v == null ? '—' : fmtTime(v);
+}
+
+/* ------------------------------ Difficulty → board size ---------------- */
+
+/** Update board dimensions from difficulty choice. */
+function setBoardSizeFromDifficulty(diff) {
+  if (diff === 'beginner') { state.size = 4; state.boxSize = 2; }
+  else { state.size = 9; state.boxSize = 3; }
+}
+
+/* ------------------------------ Challenge label ----------------------- */
+
+/** Update the compact difficulty label and the current-level marker. */
+function updateChallengeLabel() {
+  const names = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced', expert: 'Expert' };
+  if (challengeLabel) challengeLabel.textContent = names[state.difficulty] || state.difficulty;
+  $$('.level-option').forEach(button => {
+    button.classList.toggle('is-current', button.dataset.difficulty === state.difficulty && state.givens.length > 0);
+  });
+}
+
+/* ------------------------------ App views ----------------------------- */
+
+/** Return true when the in-memory puzzle belongs to the requested level. */
+function hasPuzzleForDifficulty(difficulty) {
+  const size = difficulty === 'beginner' ? 4 : 9;
+  return state.difficulty === difficulty &&
+    state.givens.length === size * size &&
+    state.grid.length === size * size &&
+    state.solution.length === size * size;
+}
+
+/** Close the secondary game menu without affecting game state. */
+function closeGameMenu() {
+  if (gameMenuEl) gameMenuEl.hidden = true;
+  if (settingsToggleBtn) settingsToggleBtn.setAttribute('aria-expanded', 'false');
+}
+
+/** Pause/save the current puzzle and return to level selection. */
+function showLevelSelection(saveCurrent = true) {
+  if (saveCurrent && state.givens.length) {
+    stopTimer();
+    save();
+  }
+  closeGameMenu();
+  if (gameViewEl) gameViewEl.hidden = true;
+  if (levelSelectionEl) levelSelectionEl.hidden = false;
+  updateChallengeLabel();
+  window.scrollTo(0, 0);
+}
+
+/** Reveal the game view without recreating the puzzle. */
+function showGameView() {
+  if (levelSelectionEl) levelSelectionEl.hidden = true;
+  if (gameViewEl) gameViewEl.hidden = false;
+  closeGameMenu();
+  window.scrollTo(0, 0);
+}
+
+/** Resume the selected level when possible; otherwise use the existing new-game path. */
+function chooseLevel(difficulty) {
+  const canResume = hasPuzzleForDifficulty(difficulty) && !state.gameOver;
+  state.difficulty = difficulty;
+  setBoardSizeFromDifficulty(difficulty);
+  if (difficultySel) difficultySel.value = difficulty;
+  updateBestTimeUI();
+  showGameView();
+
+  if (canResume) {
+    buildGridTable();
+    buildKeys();
+    writeClocks(fmtTime(state.elapsed));
+    updateStatusUI();
+    resumeTimer();
+    coach('👋 Welcome back! Your puzzle is ready.');
+    return;
+  }
+
+  state.puzzleNumber = 1;
+  newGame();
+}
+
+/* ------------------------------ New / Restart -------------------------- */
+
+/**
+ * Create a fresh puzzle and start the timer.
+ * Uses a tiny setTimeout(0) so the UI can paint “Generating…” before work.
+ */
+function newGame() {
+  if (isBuilding) return;
+
+  coach('⏳ Generating puzzle…');
+  setTimeout(() => {
+    resetTimer();
+    Object.assign(state, {
+      hintsUsed: 0, hintTarget: null, hintValue: null,
+      mistakes: 0, mistakeCells: new Set(), gameOver: false,
+      undoStack: [], redoStack: [], score: 0,
+      notes: {}, highlightNumber: null, goodFlash: new Set(),
+    });
+
+    setBoardSizeFromDifficulty(state.difficulty);
+
+    const { puzzle, solution } =
+      generatePuzzleForDifficulty(state.difficulty, state.size, state.boxSize);
+
+    state.givens   = puzzle.slice();
+    state.grid     = puzzle.slice();
+    state.solution = solution.slice();
+
+    if (newGameBtn) newGameBtn.disabled = true;
+    buildGridTable();
+    buildKeys();
+    startTimer();
+    save();
+    updateBestTimeUI();
+    setTimeout(() => { if (newGameBtn) newGameBtn.disabled = false; }, 300);
+    coach('🎲 New puzzle ready!');
+  }, 0);
+}
+
+/**
+ * Restart current puzzle using the same givens/solution (fresh timer & UI).
+ */
+function restartGameSamePuzzle() {
+  if (isBuilding) return;
+  resetTimer();
+  Object.assign(state, {
+    grid: state.givens.slice(),           // same givens
+    mistakes: 0, mistakeCells: new Set(),
+    hintsUsed: 0, hintTarget: null, hintValue: null,
+    gameOver: false,
+    undoStack: [], redoStack: [],
+    score: 0, notes: {}, highlightNumber: null, goodFlash: new Set(),
+  });
+  buildGridTable();
+  buildKeys();
+  startTimer();
+  save();
+  updateBestTimeUI();
+}
+
+/* ------------------------------ Numpad --------------------------------- */
+
+/**
+ * Build the 1..N number buttons and wire click handlers.
+ */
+function buildKeys() {
+  if (!keysEl) return;
+  keysEl.innerHTML = '';
+  const N = state.size;
+  keysEl.dataset.n = String(N);
+  for (let v = 1; v <= N; v++) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = `<div class="digit">${v}</div><div class="remain">0</div>`;
+    b.dataset.value = String(v);
+    b.setAttribute('aria-label', `Number ${v}`);
+    b.addEventListener('click', () => {
+      const i = state.selected;
+      const canEdit = i != null && state.givens[i] === 0;
+      if (!canEdit) { setHighlightNumber(v); return; }
+      placeNumber(v);
+      state.highlightNumber = v;
+      repaintHighlightsOnly();
+    });
+    keysEl.appendChild(b);
+  }
+  updateNumpadCounts();
+  updateNumpadActiveStyle();
+}
+
+/* ------------------------------ Keyboard --------------------------------
+  - Space: pause/resume
+  - Shift+S: stop/reset
+  - 1..N: place/highlight
+---------------------------------------------------------------------------*/
+document.addEventListener('keydown', (e) => {
+  if (!gameViewEl || gameViewEl.hidden) return;
+  if (e.code === 'Space') { e.preventDefault(); state.timerId ? stopTimer() : resumeTimer(); return; }
+  if (e.code === 'KeyS' && e.shiftKey) { e.preventDefault(); resetTimer(); return; }
+  const n = Number(e.key);
+  if (!Number.isInteger(n) || n < 1 || n > state.size) return;
+  const i = state.selected;
+  const canEdit = i != null && state.givens[i] === 0;
+  if (!canEdit) { setHighlightNumber(n); return; }
+  placeNumber(n);
+  state.highlightNumber = n;
+  repaintHighlightsOnly();
+});
+
+/* ------------------------------ Wiring / Init -------------------------- */
+
+/** Cache DOM references for all UI elements (null-safe). */
+function grabDom() {
+  difficultySel    = $('#difficulty');
+  gridTable        = $('#gridTable');
+  keysEl           = $('#keys');
+  newGameBtn       = $('#newGame');
+  restartBtn       = $('#restartGame');
+  hintBtn          = $('#hintBtn');
+  notesToggle      = $('#notesToggle');
+  eraseBtn         = $('#eraseBtn');
+  undoBtn          = $('#undoBtn');
+  redoBtn          = $('#redoBtn');
+  hintsUsedEl      = $('#hintsUsed');
+  mistakesEl       = $('#mistakes');
+  livesEl          = $('#lives');
+  coachMsg         = $('#coachMsg');
+  clearProgressBtn = $('#clearProgress');
+  scoreEl          = $('#score');
+  challengeLabel   = $('#challengeLabel');
+  clockEl2         = $('#clock');
+  btnPause         = $('#btn-pause')  || $('#btnPause');
+  btnResume        = $('#btn-resume') || $('#btnResume');
+  btnStop          = $('#btn-stop')   || $('#btnStop');
+  bestTimeEl       = $('#bestTime');
+  progressEl       = $('#progressText');
+  totalScoreEl     = $('#totalScore');
+  notesStateEl     = $('#notesState');
+  levelSelectionEl = $('#levelSelection');
+  gameViewEl       = $('#gameView');
+  gameMenuEl       = $('#gameMenu');
+  settingsToggleBtn = $('#settingsToggle');
+}
+
+/** Attach event listeners (null-guarded). */
+function bindEvents() {
+  $$('.level-option').forEach(button => {
+    button.addEventListener('click', () => chooseLevel(button.dataset.difficulty));
+  });
+
+  $('#backToLevels')?.addEventListener('click', () => showLevelSelection());
+  $('#changeLevel')?.addEventListener('click', () => showLevelSelection());
+  settingsToggleBtn?.addEventListener('click', () => {
+    const willOpen = gameMenuEl ? gameMenuEl.hidden : false;
+    if (gameMenuEl) gameMenuEl.hidden = !willOpen;
+    settingsToggleBtn.setAttribute('aria-expanded', String(willOpen));
+  });
+  $('#howToButton')?.addEventListener('click', () => {
+    const howTo = $('#howTo');
+    if (!howTo) return;
+    howTo.open = true;
+    closeGameMenu();
+    howTo.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  if (gridTable) gridTable.addEventListener('click', onGridClick);
+  if (newGameBtn) newGameBtn.addEventListener('click', () => { closeGameMenu(); newGame(); });
+  if (restartBtn) restartBtn.addEventListener('click', () => { closeGameMenu(); restartGameSamePuzzle(); });
+  if (hintBtn) hintBtn.addEventListener('click', hint);
+  if (eraseBtn) eraseBtn.addEventListener('click', eraseCell);
+  if (undoBtn) undoBtn.addEventListener('click', undo);
+  if (redoBtn) redoBtn.addEventListener('click', () => { closeGameMenu(); redo(); });
+
+  if (btnPause)  btnPause.addEventListener('click', stopTimer);
+  if (btnResume) btnResume.addEventListener('click', resumeTimer);
+  if (btnStop)   btnStop.addEventListener('click', resetTimer);
+
+  if (notesToggle) notesToggle.addEventListener('click', () => {
+    state.notesMode = !state.notesMode;
+    notesToggle.setAttribute('aria-pressed', String(state.notesMode));
+    notesToggle.title = `Notes mode ${state.notesMode ? 'on' : 'off'}`;
+    if (notesStateEl) notesStateEl.textContent = state.notesMode ? 'On' : 'Off';
+    coach(state.notesMode
+      ? '📝 Notes ON: Tap a box, then tap numbers to make tiny helper notes.'
+      : '👆 Notes OFF: Tap a box, then tap a number to place it.'
+    );
+  });
+
+  if (difficultySel) {
+    difficultySel.addEventListener('change', () => {
+      state.difficulty = difficultySel.value;
+      setBoardSizeFromDifficulty(state.difficulty);
+      state.puzzleNumber = 1;
+      updateBestTimeUI();
+      newGame();
+    });
+  }
+
+  if (clearProgressBtn) {
+    clearProgressBtn.addEventListener('click', () => {
+      const confirmed = window.confirm(
+        'Delete your saved game?\n\nYour current puzzle and progress will be removed.'
+      );
+
+      if (!confirmed) return;
+
+      clearSave();
+    });
+  }
+
+  document.addEventListener('visibilitychange', () => { if (document.hidden && state.timerId) stopTimer(); });
+  window.addEventListener('beforeunload', save);
+}
+
+/** Load saved state, then begin at the level-selection view. */
+function init() {
+  grabDom();
+  loadBestTimes();
+  const had = load();
+  setBoardSizeFromDifficulty(state.difficulty);
+  updateBestTimeUI();
+
+  // Safety: unexpected size → reset to beginner 4×4
+  if (![4, 9].includes(state.size)) {
+    state.difficulty = 'beginner';
+    setBoardSizeFromDifficulty(state.difficulty);
+    clearSave();
+    updateBestTimeUI();
+  }
+
+  bindEvents();
+
+  if (had) {
+    writeClocks(fmtTime(state.elapsed));
+    syncTimerButtons();
+    updateStatusUI();
+    coach('👋 Saved puzzle ready. Choose its level to continue.');
+  } else {
+    writeClocks('00:00');
+    syncTimerButtons();
+    updateChallengeLabel();
+  }
+
+  showLevelSelection(false);
+}
+
+/* Run once DOM is ready */
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init, { once: true });
+} else {
+  init();
+}
